@@ -1,0 +1,113 @@
+---
+description: Core project context for the Starfield Starmap Explorer
+alwaysApply: true
+---
+
+# Project Context
+
+This project is the **Starfield Starmap Explorer** — a single-file, browser-based interactive galaxy map for the game *Starfield* by Bethesda.
+
+It is a **personal offline tool** — no server, no accounts, no syncing. Progress and notes are saved locally via `localStorage`, `IndexedDB`, and the File System Access API (for folder-based JSON saves).
+
+The entire application lives in one file: `Starmap_-_Fav_v3_.html` (or the current version).
+There are no build tools, no framework, no npm.
+
+## Aspiration / Reference
+
+The design aspiration is the feature set found at **mapgenie.io/starfield** — specifically:
+- Category/type filter sidebar (toggleable icon groups)
+- Quick search by system name
+- Progress tracker (mark systems as explored / scanned)
+- Notes per map point
+- Clean legend and category grouping
+- Smooth pan and zoom
+
+The implementation stays **offline-only** — no external API calls, no sync.
+
+## Tech Stack
+
+- **Single `.html` file** — all CSS and JS inline
+- **Tailwind CSS** via CDN (`https://cdn.tailwindcss.com`) — utility classes used throughout
+- **Font Awesome 6** via CDN — icon set for map points and UI
+- **Modern JavaScript (ES6+)** — `const`, `let`, arrow functions, `async/await`, template literals are all in use. Do NOT convert to ES5/`var`.
+- No npm, no bundler, no imports/exports
+- Runs directly from `file://` in any modern browser (Chrome recommended for File System Access API)
+
+## Core Data Model
+
+### `starSystemsData[]`
+Array of star system objects. Shape:
+```js
+{
+  id: 'sol',            // unique string key
+  name: 'Sol',          // display name
+  x: 1234,              // pixel x on the starmap canvas
+  y: 567,               // pixel y on the starmap canvas
+  level: 1,             // difficulty tier (1–4, maps to point1–point4 CSS class)
+  type: 'main',         // category string (e.g. 'main', 'faction', 'poi', etc.)
+  description: '...'    // optional flavour text shown in the info panel
+}
+```
+
+### `systemStates{}`
+Object keyed by system `id`. Shape:
+```js
+{
+  'sol': {
+    explored: true,     // boolean — player has visited
+    scanned: false,     // boolean — player has scanned
+    note: 'My note'     // string — free-text note
+  }
+}
+```
+
+## Save System
+
+Three save paths exist:
+1. **localStorage** (`starfieldStarmapStates`) — auto-saved on every state change. Primary save.
+2. **IndexedDB** (`starmapSaveFolder`) — persists a `FileSystemDirectoryHandle` across sessions.
+3. **File System Access API** — saves/loads named `.json` files to/from a user-chosen folder.
+
+### Rules
+- `saveSystemStates()` must be called after every mutation to `systemStates`.
+- `loadSystemStates()` reads from localStorage on boot.
+- `applyLoadedSaveData(data)` merges loaded JSON into `systemStates` and calls `saveSystemStates()`.
+
+## What the App Does (current v3)
+
+- Pan and zoom the galaxy map (drag + scroll wheel)
+- Click a map point to open an info panel (name, description, explored/scanned status, note icon)
+- Mark systems as explored (left-click the system label)
+- Mark systems as scanned (click the scan icon on the map point)
+- Add/edit free-text notes per system (click the note icon)
+- Progress counter: total systems / explored / scanned
+- Reset all exploration
+- Save progress to a folder as a named `.json` file
+- Load progress from a saved `.json` file
+
+## Working Rules
+
+- Do not remove existing working features unless explicitly asked.
+- Preserve existing UI patterns and interaction behaviour unless the task changes them.
+- Prefer small, targeted changes over full rewrites.
+- After editing, verify that save/load, pan/zoom, and the note modal all still work.
+- Never introduce server-side calls, authentication, or sync features — this remains offline.
+- Keep CDN links to Tailwind and Font Awesome as-is unless explicitly asked to remove them.
+- Do not introduce additional CDN dependencies without asking first.
+
+## Current Agent Workflow
+
+1. Builder Agent implements the requested change.
+2. QA Agent reviews and tests the implementation.
+3. Reporter Agent updates documentation.
+4. Human verifies before finalising.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `Starmap_-_Fav_v3_.html` (or current version) | The entire application |
+| `README.md` | Human-readable overview |
+| `CONTEXT.md` | Full technical reference for AI assistants |
+| `.cursor/rules/` | These agent rule files |
+| `starmap-save-YYYY-MM-DD.json` | User-generated save files (external, not tracked) |

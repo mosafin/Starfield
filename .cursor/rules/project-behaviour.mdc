@@ -1,0 +1,53 @@
+---
+description: Core working rules for the Starfield Starmap Explorer. Always apply when editing this file.
+alwaysApply: true
+---
+
+# Starfield Starmap Explorer — Project Behaviour Rules
+
+## General
+
+- Preserve existing pan, zoom, click, and modal interactions unless a change is specifically requested.
+- Do not rewrite the whole file. Prefer targeted edits over full section rewrites.
+- Before any edit, understand what the code is doing in context — especially around event listeners and state mutations.
+- After any edit, verify the three most fragile systems still work: **save/load**, **pan/zoom**, and the **note modal**.
+
+## What Must Never Break
+
+| Feature | Why it's fragile |
+|---------|-----------------|
+| `saveSystemStates()` | Must be called after every state mutation. Silent failures cause progress loss. |
+| `loadSystemStates()` / `applyLoadedSaveData()` | Must merge, not replace. Missing systems must default gracefully. |
+| Pan / zoom | `mouseup` must be caught on `document`. Cursor class must reset. Scale must be bounded. |
+| Note modal | Must set `currentEditingSystemId` and populate content before showing. |
+| Map point event listeners | Must not be destroyed by `innerHTML` resets on the container. |
+
+## Change Safety Protocol
+
+1. Read the section of code you are about to change.
+2. Identify which state variables it touches.
+3. Identify which other functions call or depend on it.
+4. Make the smallest change that achieves the goal.
+5. Ask: does `saveSystemStates()` need to be called? Does a DOM element need to be updated immediately?
+
+## Treat This as a Real Tool
+
+- This is a personal offline tool used during active Starfield gameplay.
+- Features added should be complete and stable — not partially working.
+- If a fix is not verified to work, do not ship it.
+- Document what changed in `CONTEXT.md` if the change affects architecture or data shape.
+
+## Offline-First, Always
+
+- Do not add server calls, fetch requests to external APIs, or sync features.
+- Do not rely on internet connectivity for any feature — CDN links for Tailwind and Font Awesome are an accepted exception (already present), but no new ones without approval.
+- The file must remain openable by double-clicking it in a file explorer.
+
+## MapGenie Feature Parity
+
+When adding features inspired by mapgenie.io, keep these principles:
+- **Filters**: sidebar-based, toggle per category/type, never destructive
+- **Search**: instant name filter, pan-to-result on click, composable with filters
+- **Progress**: percentage or count display, per-category if possible
+- **Categories**: driven by `type` field in `starSystemsData[]` — adding a new type should not require code changes beyond adding the data
+- **Legend**: always visible or easy to reach — players need it for the difficulty colour key

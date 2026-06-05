@@ -1,0 +1,38 @@
+---
+description: Hard rules that must be followed on every edit to the Starfield Starmap Explorer
+alwaysApply: true
+---
+
+# Project Rules — Non-Negotiable
+
+These rules exist because each one maps to a real bug category or constraint for this type of project.
+
+## Rule 1 — Call `saveSystemStates()` after every mutation
+Any change to `systemStates` (explored, scanned, note) that is not followed by `saveSystemStates()` will be silently lost on page reload. This is the most common cause of progress loss.
+
+## Rule 2 — Never mutate `starSystemsData[]` at runtime
+`starSystemsData[]` is the static source of truth for all system positions, names, and types. All per-player state goes in `systemStates{}`. Mutating `starSystemsData` at runtime corrupts the base map data and cannot be undone without a page reload.
+
+## Rule 3 — `mouseup` listeners for pan must be on `document`
+If the drag-end listener is only on the map container, releasing the mouse outside the browser window (or over a UI overlay) will not fire it. Result: map stays in grabbed/dragging state permanently. Always use `document.addEventListener('mouseup', ...)` or `document.addEventListener('pointerup', ...)` as a safety net.
+
+## Rule 4 — Always guard File System Access API with a feature check
+`window.showDirectoryPicker` and `window.showSaveFilePicker` are not available in Firefox or Safari. Every call to these APIs must be wrapped in `if ('showDirectoryPicker' in window)`. The fallback is a `<a href="blob:...">` download link.
+
+## Rule 5 — Never use `innerHTML` reset on the map container
+Re-assigning `starmapContainer.innerHTML` destroys all bound event listeners on every map point. Use targeted DOM updates (toggle classes, update text content, show/hide elements) instead of wholesale re-renders.
+
+## Rule 6 — Filters and search hide points — they never delete them
+When implementing filters or search, use `display: none` / `display: flex` (or a CSS class) to show/hide map point elements. Never remove map point elements from the DOM — they cannot be easily recreated without re-running the full render loop.
+
+## Rule 7 — Note modal is a shared singleton — always set content before showing
+The note modal (`#noteModalOverlay`) is one shared element. Before showing it, always set `currentEditingSystemId` and populate `#noteContent` with the system's existing note. Showing the modal without setting these first will display stale content from the previous system.
+
+## Rule 8 — `applyLoadedSaveData()` must merge, not replace
+When loading a save file, merge the loaded data into `systemStates` key by key — do not do `systemStates = loadedData`. Systems present in the map but absent from the save file should default to `{ explored: false, scanned: false, note: '' }`, not throw errors.
+
+## Rule 9 — Zoom must be bounded
+There are no hard browser limits on CSS `scale()` transforms, so an unbounded scroll can zoom the map to zero or infinity. Always clamp scale between a defined `MIN_SCALE` and `MAX_SCALE` (e.g. 0.2 and 4.0).
+
+## Rule 10 — No new CDN dependencies without explicit approval
+This is an offline tool. Every new CDN link is a point of failure when the user has no internet. Tailwind and Font Awesome are already loaded. If a new library is genuinely needed, ask first — and evaluate whether it can be inlined instead.

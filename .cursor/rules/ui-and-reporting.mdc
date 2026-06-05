@@ -1,0 +1,89 @@
+---
+description: UI, UX, and map interaction rules for the Starfield Starmap Explorer
+alwaysApply: true
+---
+
+# UI and Map Interaction Rules — Starfield Starmap Explorer
+
+## Layout
+
+- The app is full-viewport: map canvas fills the screen, with a floating controls bar and overlaid panels.
+- The map controls (`#mapControls`) are a floating bar — position and z-index must not be changed without checking for overlap with other overlays.
+- The info panel (`#infoPanel`) is a floating overlay — it appears on system click and is hidden by default.
+- Do not add persistent left/right sidebars that reduce the map viewport unless explicitly asked.
+- Any new panels or sidebars must be collapsible so the full map remains visible.
+
+## Map Canvas
+
+- The starmap container is a full-viewport `div` transformed via CSS `translate` and `scale`.
+- Map points (`.mappoint`) are absolutely positioned children of the container.
+- Pan is applied via `transform: translate(x, y) scale(s)` on the container — not by moving individual points.
+- Zoom range: define `MIN_SCALE` and `MAX_SCALE` constants (suggested: 0.2–4.0). Enforce them in the zoom handler.
+- Map points placed outside the container's native dimensions may not be reachable at high zoom — this is a known constraint, not a bug.
+
+## Map Points
+
+- Each `.mappoint` renders: a difficulty icon (`.pictofont`), the system name (`.namesecondary`), a note icon (`.note-icon`), and a scan icon (`.scan-icon`).
+- Difficulty tier classes: `.point1` (green, level 1), `.point2` (blue, level 2), `.point3` (yellow, level 3), `.point4` (red/orange, level 4+).
+- Note icon: grey (`#6b7280`) when no note; yellow (`#fcd34d`) when a note exists.
+- Scan icon: grey when unscanned; cyan (`#00bcd4`) when scanned.
+- Explored state: typically shown by a visual change on the system label or icon (opacity, colour, or a checkmark). Define a consistent explored visual if not already present.
+- Map point text must not wrap — use `white-space: nowrap` to prevent layout breaks at lower zoom levels.
+
+## Controls Bar
+
+- Zoom in / zoom out buttons adjust scale by a fixed step.
+- "Folder" button triggers `chooseSaveFolder()`.
+- "Save" button triggers `saveToFolder()`.
+- Save file selector (`#saveFileSelect`) opens a previously saved `.json` file.
+- Refresh button (`#refreshSavesBtn`) refreshes the save file list from the chosen folder.
+- File input (`#openSaveFileInput`) is a hidden fallback for direct `.json` file open.
+- Do not remove or rename these controls without updating all dependent JS.
+
+## Info Panel
+
+- Opens on system click; shows system name, description, explored/scanned status.
+- Content is replaced on each new system click — that is expected.
+- Must include a close button or close on second click.
+- Should not obscure more than ~25% of the map viewport on desktop.
+
+## Note Modal
+
+- A centred overlay modal (`#noteModalOverlay` / `.note-modal`).
+- Always pre-populate `#noteContent` with the current system's note before showing.
+- Save: update `systemStates[id].note`, call `saveSystemStates()`, update the note icon on the map point, close modal.
+- Cancel: discard changes, close modal, no state mutation.
+- Must close on Cancel click and after Save.
+
+## Progress Counter
+
+- Displayed in the info panel or as a persistent floating element.
+- Shows: total systems, explored count, scanned count.
+- Must update immediately on any state change — no page reload required.
+
+## Reset
+
+- "Reset Exploration" button clears all `explored`, `scanned`, and `note` values in `systemStates`.
+- Must prompt for confirmation before executing (use `confirm()` or `showMessageBox()`).
+- Must call `saveSystemStates()` after reset.
+- Must update all map point visuals and counters immediately.
+
+## Toast / Message Notifications
+
+- Use `showMessageBox(title, message)` for error messages and important confirmations.
+- For lightweight confirmations (e.g. "Note saved"), a brief on-screen toast is preferred over a modal. Implement as a timed `div` that fades out.
+- Do not use `alert()` except for the reset confirmation dialog.
+
+## Dark Space Aesthetic — Non-Negotiable
+
+- Background: `#0d1117` (near-black space)
+- Surfaces (panels, modals): `bg-gray-800` / `bg-gray-900` (Tailwind) or equivalent dark greys
+- Text: light grey / white (`text-gray-100`, `text-gray-200`)
+- Accents: blue (`#2196f3`, `#93c5fd`), cyan (`#00bcd4`), yellow (`#fcd34d`) for interactive states
+- No light mode. No white backgrounds on map-facing components.
+
+## Minimap (if added)
+
+- Small canvas or scaled thumbnail in a corner, showing approximate positions of all systems.
+- Optional feature — not currently present. If added, must not overlap controls or info panel.
+- Clicking the minimap should pan the main view to that region.

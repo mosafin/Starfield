@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starfield Starmap Explorer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons (regular circle, solid dot-circle, check-circle, sticky-note, eye) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            overflow: hidden; /* Prevent scrolling if content overflows */
+        }
+        .starmap-container {
+            width: 100vw;
+            height: 100vh;
+            background-color: #0d1117; /* Dark background similar to space */
+            position: relative;
+            overflow: hidden; /* Handled by translation */
+            transform-origin: 0 0; /* Set origin to top-left for consistent transformations */
+            transition: transform 0.05s ease-out; /* Smooth zoom/pan transition for snappiness */
+            cursor: grab; /* Default cursor for grabbing */
+            touch-action: none;
+        }
+        .starmap-container.grabbing {
+            cursor: grabbing; /* Cursor when dragging */
+        }
+
+        /* Base styles for all star systems */
+        .mappoint {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 4px; /* Space between star icon, name, note icon, scan icon */
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5); /* Subtle glow for text readability */
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            white-space: nowrap; /* Prevent text wrapping */
+            transform: translate(-50%, -50%); /* Center the system div on its coordinates */
+            user-select: none; /* Prevent text selection */
+        }
+
+        .mappoint:hover {
+            color: #ffffff;
+            transform: translate(-50%, -50%) scale(1.05); /* Slight scale on hover */
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+        }
+
+        .mappoint .system-link { /* New class for the main system name/icon clickable area */
+            display: flex;
+            align-items: center;
+            color: inherit; /* Inherit color from parent mappoint */
+            text-decoration: none; /* No underline */
+        }
+
+        /* Icon styling (pictofont equivalent using Font Awesome) */
+        .mappoint .pictofont {
+            font-size: 0.7rem; /* Smaller dot for the star */
+            margin-right: 4px; /* Space between icon and text */
+            transition: color 0.2s ease-in-out;
+        }
+
+        /* Name text styling */
+        .mappoint .namesecondary {
+            color: inherit; /* Inherit color from mappoint */
+        }
+
+        /* Difficulty-based color styling for systems (approximated from map legend) */
+        .mappoint.point1 { color: #8bc34a; } /* Green */
+        .mappoint.point1 .pictofont { color: #8bc34a; }
+        .mappoint.point2 { color: #2196f3; } /* Blue */
+        .mappoint.point2 .pictofont { color: #2196f3; }
+        .mappoint.point3 { color: #ffeb3b; } /* Yellow */
+        .mappoint.point3 .pictofont { color: #ffeb3b; }
+        .mappoint.point4 { color: #ff9800; } /* Orange (default for many) */
+        .mappoint.point4 .pictofont { color: #ff9800; }
+        .mappoint.point5 { color: #f44336; } /* Red */
+        .mappoint.point5 .pictofont { color: #f44336; }
+        .mappoint.pointmain { color: #00bcd4; } /* Cyan for Sol */
+        .mappoint.pointmain .pictofont { color: #00bcd4; }
+
+
+        /* Explored state overrides */
+        .mappoint.explored {
+            color: #4CAF50; /* Green for explored */
+            font-weight: 700;
+            background-color: rgba(76, 175, 80, 0.1); /* Subtle green background */
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        .mappoint.explored .pictofont {
+            color: #4CAF50 !important; /* Force green checkmark */
+        }
+
+        /* Note icon specific styling */
+        .note-icon, .scan-icon {
+            font-size: 0.7rem; /* Match pictofont size */
+            color: #6b7280; /* Default gray for no note/unscanned */
+            margin-left: 6px; /* Space from system name or previous icon */
+            transition: color 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .note-icon.has-note {
+            color: #fcd34d; /* Yellow if note exists */
+        }
+        .note-icon:hover, .scan-icon:hover {
+            color: #fcd34d; /* Yellow on hover for both */
+        }
+
+        /* Scanned state styling */
+        .scan-icon.scanned {
+            color: #00bcd4; /* Cyan/light blue for scanned */
+        }
+
+
+        /* Info Panel */
+        .info-panel {
+            position: fixed; /* Use fixed for consistent positioning */
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(31, 41, 55, 0.85); /* Darker semi-transparent */
+            border-radius: 12px;
+            padding: 16px 24px;
+            color: #e5e7eb;
+            font-size: 0.9rem;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(55, 65, 81, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 100; /* Ensure it's above the starmap */
+        }
+
+        /* Message Box Styling */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .message-box {
+            background-color: #2d3748; /* Darker blue-gray */
+            color: #e2e8f0;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #4a5568;
+        }
+
+        .message-box h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #63b3ed; /* Light blue for title */
+        }
+
+        .message-box p {
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .message-box button {
+            background-color: #4299e1; /* Blue button */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            border: none;
+        }
+
+        .message-box button:hover {
+            background-color: #3182ce; /* Darker blue on hover */
+        }
+
+        /* Note Modal Styling */
+        .note-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .note-modal {
+            background-color: #1f2937; /* Darker gray */
+            color: #e5e7eb;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 90%; /* Responsive width */
+            border: 1px solid #374151;
+        }
+
+        .note-modal h3 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1.5rem;
+            color: #93c5fd; /* Lighter blue for modal title */
+            text-align: center;
+        }
+
+        .note-modal textarea {
+            min-height: 120px; /* Ensure a decent height */
+            resize: vertical; /* Allow vertical resizing */
+        }
+
+        .map-controls {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            max-width: min(100vw - 24px, 420px);
+            padding: 10px 12px;
+            background-color: rgba(31, 41, 55, 0.9);
+            border-radius: 10px;
+            border: 1px solid rgba(55, 65, 81, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 110;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        .map-controls button,
+        .map-controls select {
+            font-size: 0.8rem;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #4b5563;
+            background-color: #374151;
+            color: #e5e7eb;
+            cursor: pointer;
+        }
+        .map-controls button:hover {
+            background-color: #4b5563;
+        }
+        .map-controls .zoom-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .map-controls .zoom-group button {
+            min-width: 36px;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 4px 8px;
+        }
+        .map-controls #zoomLevelLabel {
+            min-width: 42px;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #9ca3af;
+        }
+        .map-controls select {
+            flex: 1 1 140px;
+            min-width: 120px;
+            max-width: 100%;
+        }
+        @media (max-width: 768px) {
+            .mappoint {
+                font-size: 0.7rem;
+                padding: 2px 6px;
+                gap: 2px;
+            }
+            .mappoint .pictofont,
+            .note-icon, .scan-icon {
+                font-size: 0.6rem;
+            }
+            .info-panel {
+                font-size: 0.75rem;
+                padding: 10px 14px;
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                width: auto;
+                transform: none;
+            }
+            .map-controls {
+                top: auto;
+                bottom: 72px;
+                right: 8px;
+                left: 8px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col items-center justify-center min-h-screen">
+
+    <div class="starmap-container relative w-full h-screen">
+        <!-- Star systems will be dynamically added here by JavaScript -->
+    </div>
+
+    <div class="map-controls" id="mapControls">
+        <div class="zoom-group">
+            <button type="button" id="zoomOutBtn" title="Zoom out (-)">−</button>
+            <span id="zoomLevelLabel">100%</span>
+            <button type="button" id="zoomInBtn" title="Zoom in (+)">+</button>
+        </div>
+        <button type="button" id="chooseSaveFolderBtn" title="Choose folder for save files">Folder</button>
+        <button type="button" id="saveToFolderBtn" title="Save progress to folder">Save</button>
+        <select id="saveFileSelect" title="Open a save from folder">
+            <option value="">Open save…</option>
+        </select>
+        <button type="button" id="refreshSavesBtn" title="Refresh save list">↻</button>
+        <input type="file" id="openSaveFileInput" accept=".json,application/json" class="hidden">
+    </div>
+
+    <div class="info-panel hidden" id="infoPanel">
+        <p><span id="totalSystems">0</span> Systems Total | <span id="exploredCount">0</span> Explored | <span id="scannedCount">0</span> Scanned</p>
+        <button id="resetButton" class="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors duration-200">Reset Exploration</button>
+    </div>
+
+    <!-- Note Modal HTML -->
+    <div class="note-modal-overlay hidden" id="noteModalOverlay">
+        <div class="note-modal bg-gray-800 p-6 rounded-lg shadow-xl w-96">
+            <h3 class="text-xl font-bold mb-4 text-blue-300">Note for <span id="noteSystemName"></span></h3>
+            <textarea id="noteContent" class="w-full h-32 p-3 bg-gray-700 text-gray-200 border border-gray-600 rounded-md focus:outline-none focus:border-blue-500 mb-4" placeholder="Enter your note here..."></textarea>
+            <div class="flex justify-end gap-3">
+                <button id="saveNoteButton" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200">Save Note</button>
+                <button id="cancelNoteButton" class="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors duration-200">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Message box function (no changes)
+        function showMessageBox(title, message) {
+            const overlay = document.createElement('div');
+            overlay.className = 'message-box-overlay';
+            overlay.innerHTML = `
+                <div class="message-box">
+                    <h3>${title}</h3>
+                    <p>${message}</p>
+                    <button onclick="this.closest('.message-box-overlay').remove()">OK</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        const starmapContainer = document.querySelector('.starmap-container');
+        const infoPanel = document.getElementById('infoPanel');
+        const totalSystemsSpan = document.getElementById('totalSystems');
+        const exploredCountSpan = document.getElementById('exploredCount');
+        const scannedCountSpan = document.getElementById('scannedCount'); // New span for scanned count
+        const resetButton = document.getElementById('resetButton');
+
+        // Note Modal Elements
+        const noteModalOverlay = document.getElementById('noteModalOverlay');
+        const noteSystemNameSpan = document.getElementById('noteSystemName');
+        const noteContentTextarea = document.getElementById('noteContent');
+        const saveNoteButton = document.getElementById('saveNoteButton');
+        const cancelNoteButton = document.getElementById('cancelNoteButton');
+
+        let currentEditingSystemId = null; // To keep track of which system's note is being edited
+
+        // Star system data with approximate relative positions (percentages of container width/height)
+        // Meticulously re-mapped from the high-resolution screenshot (image_8477ea.jpg)
+        const starSystemsData = [
+            // Left Column (Approximate difficulty point assigned based on color in map)
+            { id: 'alpha_andraste', name: 'ALPHA ANDRASTE', x: 2.8, y: 12.4, point: 3 },
+            { id: 'beta_andraste', name: 'BETA ANDRASTE', x: 3.8, y: 15.3, point: 2 },
+            { id: 'carinae', name: 'CARINAE', x: 6.6, y: 20.9, point: 2 },
+            { id: 'eta_cassiopeia', name: 'ETA CASSIOPEIA', x: 7.6, y: 23.6, point: 2 },
+            { id: 'vega', name: 'VEGA', x: 21.8, y: 23.7, point: 3 },
+            { id: 'bessel', name: 'BESSEL', x: 14.2, y: 33.2, point: 1 },
+            { id: 'piazzi', name: 'PIAZZI', x: 15.2, y: 36.1, point: 1 },
+            { id: 'altair', name: 'ALTAIR', x: 18.0, y: 38.9, point: 2 },
+            { id: 'valo', name: 'VALO', x: 21.8, y: 40.8, point: 1 },
+            { id: 'narion', name: 'NARION', x: 20.9, y: 43.7, point: 1 },
+            { id: 'barnards_star', name: "BARNARD'S STAR", x: 18.0, y: 47.5, point: 1 },
+            { id: 'van_maans_star', name: "VAN MAANEN'S STAR", x: 7.6, y: 45.6, point: 1 },
+            { id: 'sol', name: 'SOL', x: 16.1, y: 50.3, point: 'main' },
+            { id: 'luytens_star', name: "LUYTEN'S STAR", x: 9.5, y: 53.2, point: 1 },
+            { id: 'procyon_a', name: 'PROCYON A', x: 1.4, y: 56.0, point: 1 },
+            { id: 'procyon_b', name: 'PROCYON B', x: 12.3, y: 58.9, point: 1 },
+            { id: 'tau_ceti', name: 'TAU CETI', x: 8.5, y: 49.4, point: 1 },
+            { id: 'alpha_centauri', name: 'ALPHA CENTAURI', x: 19.9, y: 53.2, point: 1 },
+            { id: 'wolf', name: 'WOLF', x: 25.6, y: 50.3, point: 1 },
+            { id: 'guniibuu', name: 'GUNIIBUU', x: 24.2, y: 58.9, point: 2 },
+            { id: 'sirius', name: 'SIRIUS', x: 15.2, y: 61.7, point: 1 },
+            { id: 'the_pup', name: 'THE PUP', x: 16.1, y: 64.6, point: 1 },
+            { id: 'toliman', name: 'TOLIMAN', x: 20.9, y: 56.0, point: 1 },
+            { id: 'indum', name: 'INDUM', x: 22.8, y: 61.2, point: 2 },
+            { id: 'linnaeus', name: 'LINNAEUS', x: 24.7, y: 64.1, point: 4 },
+            { id: 'sakharov', name: 'SAKHAROV', x: 20.9, y: 67.4, point: 2 },
+            { id: 'olympus', name: 'OLYMPUS', x: 31.3, y: 55.7, point: 1 },
+            { id: 'kapteyns_star', name: "KAPTEYN'S STAR", x: 7.6, y: 70.3, point: 1 },
+            { id: 'oborum_prime', name: 'OBORUM PRIME', x: 23.7, y: 70.3, point: 2 },
+            { id: 'oborum_proxima', name: 'OBORUM PROXIMA', x: 24.7, y: 73.1, point: 3 },
+            { id: 'volii', name: 'VOLII', x: 37.0, y: 66.5, point: 1 },
+            { id: 'delta_pavonis', name: 'DELTA PAVONIS', x: 11.4, y: 79.8, point: 3 },
+            { id: 'eridani', name: 'ERIDANI', x: 1.9, y: 77.9, point: 2 },
+            { id: 'alpha_tirna', name: 'ALPHA TIRNA', x: 35.1, y: 86.4, point: 4 },
+            { id: 'beta_tirna', name: 'BETA TIRNA', x: 36.1, y: 89.3, point: 4 },
+
+            // Top Central Column
+            { id: 'newton', name: 'NEWTON', x: 40.8, y: 0.9, point: 5 },
+            { id: 'nemeria', name: 'NEMERIA', x: 41.8, y: 7.6, point: 5 },
+            { id: 'bardeen', name: 'BARDEEN', x: 48.4, y: 7.6, point: 5 },
+            { id: 'mcclure', name: 'MCCLURE', x: 38.9, y: 14.9, point: 2 },
+            { id: 'bradbury', name: 'BRADBURY', x: 38.0, y: 17.9, point: 2 },
+            { id: 'groombridge', name: 'GROOMBRIDGE', x: 32.3, y: 22.8, point: 3 },
+            { id: 'rasalhague', name: 'RASALHAGUE', x: 43.7, y: 23.7, point: 4 },
+            { id: 'andromas', name: 'ANDROMAS', x: 25.6, y: 27.2, point: 2 },
+            { id: 'kumasi', name: 'KUMASI', x: 32.3, y: 26.6, point: 3 },
+            { id: 'ursae_majoris', name: 'URSAE MAJORIS', x: 36.1, y: 28.9, point: 3 },
+            { id: 'ursae_minoris', name: 'URSAE MINORIS', x: 37.0, y: 31.3, point: 2 },
+            { id: 'nikola', name: 'NIKOLA', x: 23.7, y: 37.9, point: 4 },
+            { id: 'maheo', name: 'MAHEO', x: 30.4, y: 40.8, point: 1 },
+            { id: 'cheyenne', name: 'CHEYENNE', x: 33.2, y: 43.3, point: 1 },
+            { id: 'sagan', name: 'SAGAN', x: 36.1, y: 35.1, point: 2 },
+            { id: 'denebola', name: 'DENEBOLA', x: 40.8, y: 46.5, point: 3 },
+            { id: 'schrodinger', name: 'SCHRODINGER', x: 46.5, y: 43.2, point: 5 },
+            { id: 'alpha_marae', name: 'ALPHA MARAE', x: 37.0, y: 40.8, point: 4 }, /* From previous mapping, may overlap new. Adjusted. */
+            { id: 'beta_marae', name: 'BETA MARAE', x: 38.0, y: 43.7, point: 4 }, /* From previous mapping, may overlap new. Adjusted. */
+            { id: 'leviathan', name: 'LEVIATHAN', x: 28.5, y: 43.7, point: 5 },
+            { id: 'kryx', name: 'KRYX', x: 41.8, y: 37.0, point: 2 },
+            { id: 'tidacha', name: 'TIDACHA', x: 45.6, y: 34.2, point: 4 },
+            { id: 'lunara', name: 'LUNARA', x: 31.3, y: 46.5, point: 3 },
+            { id: 'lantana', name: 'LANTANA', x: 43.7, y: 58.9, point: 3 },
+            { id: 'aranae', name: 'ARANAE', x: 32.3, y: 58.7, point: 2 },
+            { id: 'porrima', name: 'PORRIMA', x: 46.5, y: 54.6, point: 3 },
+            { id: 'jaffa', name: 'JAFFA', x: 44.6, y: 50.3, point: 4 },
+            { id: 'xi_ophiuchi', name: 'XI OPHIUCHI', x: 38.9, y: 72.2, point: 4 },
+            { id: 'zeta_ophiuchi', name: 'ZETA OPHIUCHI', x: 39.9, y: 75.0, point: 4 },
+            { id: 'bolivar', name: 'BOLIVAR', x: 52.2, y: 69.8, point: 4 },
+            { id: 'rivera', name: 'RIVERA', x: 51.3, y: 73.1, point: 4 },
+            { id: 'nirvana', name: 'NIRVANA', x: 54.1, y: 76.0, point: 4 },
+            { id: 'alchiba', name: 'ALCHIBA', x: 57.0, y: 84.7, point: 4 },
+            { id: 'feynman', name: 'FEYNMAN', x: 35.1, y: 69.3, point: 5 },
+            { id: 'masada', name: 'MASADA', x: 58.9, y: 59.9, point: 5 },
+            { id: 'zelazny', name: 'ZELAZNY', x: 74.1, y: 77.9, point: 5 },
+            { id: 'katydid', name: 'KATYDID', x: 75.0, y: 92.1, point: 5 },
+
+            // Right Column
+            { id: 'freya', name: 'FREYA', x: 61.7, y: 0.9, point: 4 },
+            { id: 'sparta', name: 'SPARTA', x: 69.3, y: 4.7, point: 5 },
+            { id: 'ixyll', name: 'IXYLL', x: 63.6, y: 6.6, point: 4 },
+            { id: 'charybdis', name: 'CHARYBDIS', x: 70.3, y: 22.8, point: 5 },
+            { id: 'pyraas', name: 'PYRAAS', x: 83.6, y: 5.0, point: 5 },
+            { id: 'rana', name: 'RANA', x: 78.8, y: 11.0, point: 5 },
+            { id: 'fermi', name: 'FERMI', x: 87.4, y: 9.5, point: 5 },
+            { id: 'strix', name: 'STRIX', x: 83.6, y: 14.2, point: 5 },
+            { id: 'bohr', name: 'BOHR', x: 91.2, y: 13.3, point: 5 },
+            { id: 'shoza', name: 'SHOZA', x: 60.8, y: 17.1, point: 4 },
+            { id: 'bara', name: 'BARA', x: 64.6, y: 26.2, point: 4 },
+            { id: 'leonis', name: 'LEONIS', x: 75.0, y: 34.2, point: 5 },
+            { id: 'serpentis', name: 'SERPENTIS', x: 69.3, y: 26.6, point: 5 },
+            { id: 'arcturus', name: 'ARCTURUS', x: 49.4, y: 26.6, point: 2 },
+            { id: 'muphrid', name: 'MUPHRID', x: 50.8, y: 27.9, point: 2 },
+            { id: 'zosma', name: 'ZOSMA', x: 56.0, y: 19.9, point: 4 },
+            { id: 'moloch', name: 'MOLOCH', x: 60.8, y: 30.5, point: 4 },
+            { id: 'rutherford', name: 'RUTHERFORD', x: 65.5, y: 35.7, point: 4 },
+            { id: 'heisenberg', name: 'HEISENBERG', x: 52.2, y: 32.3, point: 5 },
+            { id: 'nirah', name: 'NIRAH', x: 71.2, y: 31.4, point: 4 },
+            { id: 'copernicus', name: 'COPERNICUS', x: 48.4, y: 37.0, point: 3 },
+            { id: 'copernicus_minor', name: 'COPERNICUS MINOR', x: 49.4, y: 39.9, point: 3 },
+            { id: 'decaran', name: 'DECARAN', x: 70.3, y: 42.7, point: 5 },
+            { id: 'ophion', name: 'OPHION', x: 68.3, y: 41.3, point: 4 },
+            { id: 'al_battani', name: 'AL-BATTANI', x: 59.8, y: 44.0, point: 4 },
+            { id: 'khayyam', name: 'KHAYYAM', x: 65.5, y: 47.5, point: 4 },
+            { id: 'bannoc', name: 'BANNOC', x: 71.2, y: 47.5, point: 4 },
+            { id: 'bannoc_secondus', name: 'BANNOC SECONDUS', x: 72.2, y: 50.3, point: 4 },
+            { id: 'bel', name: 'BEL', x: 75.0, y: 45.1, point: 5 },
+            { id: 'syrma', name: 'SYRMA', x: 76.5, y: 55.6, point: 5 },
+            { id: 'delta_vulpes', name: 'DELTA VULPES', x: 65.5, y: 53.8, point: 4 },
+            { id: 'gamma_vulpes', name: 'GAMMA VULPES', x: 66.5, y: 56.7, point: 4 },
+            { id: 'beta_ternion', name: 'BETA TERNION', x: 66.5, y: 60.8, point: 5 },
+            { id: 'alpha_ternion', name: 'ALPHA TERNION', x: 66.0, y: 55.1, point: 5 },
+            { id: 'proxima_ternion', name: 'PROXIMA TERNION', x: 67.4, y: 66.5, point: 5 },
+            { id: 'hyla', name: 'HYLA', x: 69.3, y: 39.9, point: 4 },
+            { id: 'maals', name: 'MAAL', x: 85.5, y: 31.4, point: 5 },
+            { id: 'verne', name: 'VERNE', x: 91.2, y: 34.3, point: 5 },
+            { id: 'heinlein', name: 'HEINLEIN', x: 63.6, y: 50.8, point: 4 },
+            { id: 'huygens', name: 'HUYGENS', x: 88.3, y: 45.3, point: 5 },
+            { id: 'hawking', name: 'HAWKING', x: 84.5, y: 50.1, point: 5 },
+            { id: 'enlil', name: 'ENLIL', x: 77.9, y: 60.8, point: 5 }, /* Duplication in image, use same spot as bannon_incongruus */
+            { id: 'archimedes', name: 'ARCHIMEDES', x: 82.6, y: 58.9, point: 5 }, /* Duplication in image, use same spot as bytyma */
+            { id: 'foucault', name: 'FOUCAULT', x: 77.9, y: 68.8, point: 5 },
+            { id: 'kang', name: 'KANG', x: 79.8, y: 71.2, point: 5 },
+            { id: 'marduk', name: 'MARDUK', x: 88.3, y: 83.1, point: 5 },
+            { id: 'algorab', name: 'ALGORAB', x: 93.1, y: 90.1, point: 5 },
+            // New star system added here
+            { id: 'celebria', name: 'CELEBRAI', x: 88.0, y: 25.0, point: 5 }
+        ];
+
+        // System states now include 'explored', 'note', and 'scanned' properties
+        let systemStates = {}; // Stores { id: { explored: boolean, note: string, scanned: boolean } }
+
+        // Function to save system states (explored status, notes, and scanned status) to localStorage
+        function saveSystemStates() {
+            localStorage.setItem('starfieldStarmapStates', JSON.stringify(systemStates));
+        }
+
+        // Function to load system states from localStorage
+        function loadSystemStates() {
+            const savedData = localStorage.getItem('starfieldStarmapStates');
+            if (savedData) {
+                systemStates = JSON.parse(savedData);
+            }
+        }
+
+        function applyLoadedSaveData(data) {
+            if (data && typeof data === 'object') {
+                systemStates = data;
+                saveSystemStates();
+                renderStarmap();
+                return true;
+            }
+            return false;
+        }
+
+        const SAVE_HANDLE_DB = 'starmapSaveFolder';
+        const SAVE_HANDLE_STORE = 'handles';
+        const SAVE_HANDLE_KEY = 'folder';
+        let saveDirectoryHandle = null;
+
+        function openSaveHandleDb() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(SAVE_HANDLE_DB, 1);
+                request.onupgradeneeded = () => {
+                    request.result.createObjectStore(SAVE_HANDLE_STORE);
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function persistSaveDirectoryHandle(handle) {
+            const db = await openSaveHandleDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(SAVE_HANDLE_STORE, 'readwrite');
+                tx.objectStore(SAVE_HANDLE_STORE).put(handle, SAVE_HANDLE_KEY);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function loadPersistedSaveDirectoryHandle() {
+            try {
+                const db = await openSaveHandleDb();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(SAVE_HANDLE_STORE, 'readonly');
+                    const req = tx.objectStore(SAVE_HANDLE_STORE).get(SAVE_HANDLE_KEY);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            } catch {
+                return null;
+            }
+        }
+
+        async function ensureSaveFolderPermission(handle, write = false) {
+            if (!handle || !handle.queryPermission) return false;
+            const opts = { mode: write ? 'readwrite' : 'read' };
+            let perm = await handle.queryPermission(opts);
+            if (perm === 'granted') return true;
+            if (perm === 'prompt' && handle.requestPermission) {
+                perm = await handle.requestPermission(opts);
+            }
+            return perm === 'granted';
+        }
+
+        async function refreshSaveFileList() {
+            const select = document.getElementById('saveFileSelect');
+            const previous = select.value;
+            select.innerHTML = '<option value="">Open save…</option>';
+            if (!saveDirectoryHandle) {
+                const browseOpt = document.createElement('option');
+                browseOpt.value = '__browse__';
+                browseOpt.textContent = 'Browse for file…';
+                select.appendChild(browseOpt);
+                return;
+            }
+            const ok = await ensureSaveFolderPermission(saveDirectoryHandle, false);
+            if (!ok) return;
+            const files = [];
+            for await (const entry of saveDirectoryHandle.values()) {
+                if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.json')) {
+                    files.push(entry.name);
+                }
+            }
+            files.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+            files.forEach((name) => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name.replace(/\.json$/i, '');
+                select.appendChild(opt);
+            });
+            if (previous && [...select.options].some((o) => o.value === previous)) {
+                select.value = previous;
+            }
+        }
+
+        async function chooseSaveFolder() {
+            if (!window.showDirectoryPicker) {
+                showMessageBox('Folder saves', 'Your browser does not support picking a save folder. Use Save to download a file, or pick a .json file from the Open save menu when it appears.');
+                return;
+            }
+            try {
+                saveDirectoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                await persistSaveDirectoryHandle(saveDirectoryHandle);
+                await refreshSaveFileList();
+                showMessageBox('Folder set', 'Save files will be stored in the folder you selected.');
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    showMessageBox('Folder error', err.message || 'Could not access folder.');
+                }
+            }
+        }
+
+        async function saveToFolder() {
+            const payload = JSON.stringify(systemStates, null, 2);
+            const defaultName = `starmap-save-${new Date().toISOString().slice(0, 10)}.json`;
+            const nameInput = prompt('Save name (file will be saved as .json):', defaultName.replace('.json', ''));
+            if (nameInput === null) return;
+            const baseName = (nameInput.trim() || 'starmap-save').replace(/[<>:"/\\|?*]/g, '_');
+            const fileName = baseName.toLowerCase().endsWith('.json') ? baseName : `${baseName}.json`;
+
+            if (saveDirectoryHandle && window.showDirectoryPicker) {
+                const ok = await ensureSaveFolderPermission(saveDirectoryHandle, true);
+                if (ok) {
+                    try {
+                        const fileHandle = await saveDirectoryHandle.getFileHandle(fileName, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(payload);
+                        await writable.close();
+                        await refreshSaveFileList();
+                        document.getElementById('saveFileSelect').value = fileName;
+                        showMessageBox('Saved', `Saved as ${fileName} in your folder.`);
+                        return;
+                    } catch (err) {
+                        showMessageBox('Save error', err.message || 'Could not write to folder.');
+                        return;
+                    }
+                }
+            }
+
+            const blob = new Blob([payload], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            showMessageBox('Downloaded', `${fileName} was downloaded. Move it to your saves folder, or set a folder with the Folder button (Chrome/Edge).`);
+        }
+
+        async function openSaveFromFolder(fileName) {
+            if (!saveDirectoryHandle || !fileName) return;
+            const ok = await ensureSaveFolderPermission(saveDirectoryHandle, false);
+            if (!ok) {
+                showMessageBox('Permission needed', 'Allow access to your saves folder to open files.');
+                return;
+            }
+            try {
+                const fileHandle = await saveDirectoryHandle.getFileHandle(fileName);
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                const data = JSON.parse(text);
+                if (applyLoadedSaveData(data)) {
+                    document.getElementById('saveFileSelect').value = '';
+                    showMessageBox('Loaded', `Opened ${fileName}.`);
+                } else {
+                    showMessageBox('Invalid save', 'That file does not contain valid starmap data.');
+                }
+            } catch (err) {
+                showMessageBox('Open error', err.message || 'Could not open save file.');
+            }
+        }
+
+        function openSaveFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    if (applyLoadedSaveData(data)) {
+                        document.getElementById('saveFileSelect').value = '';
+                        showMessageBox('Loaded', `Opened ${file.name}.`);
+                    } else {
+                        showMessageBox('Invalid save', 'That file does not contain valid starmap data.');
+                    }
+                } catch {
+                    showMessageBox('Invalid save', 'Could not read that JSON file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Function to open the note editing modal (no changes)
+        function openNoteModal(systemId, currentNote) {
+            currentEditingSystemId = systemId;
+            const system = starSystemsData.find(s => s.id === systemId);
+            if (system) {
+                noteSystemNameSpan.textContent = system.name;
+                noteContentTextarea.value = currentNote;
+                noteModalOverlay.classList.remove('hidden');
+            }
+        }
+
+        // Function to close the note editing modal (no changes)
+        function closeNoteModal() {
+            noteModalOverlay.classList.add('hidden');
+            currentEditingSystemId = null;
+            noteContentTextarea.value = ''; // Clear textarea on close
+        }
+
+        // Event listener for saving note (no changes)
+        saveNoteButton.addEventListener('click', () => {
+            if (currentEditingSystemId) {
+                const note = noteContentTextarea.value.trim();
+                // Ensure the system entry exists in systemStates, initialize if not
+                if (!systemStates[currentEditingSystemId]) {
+                    systemStates[currentEditingSystemId] = { explored: false, note: '', scanned: false };
+                }
+                systemStates[currentEditingSystemId].note = note;
+                saveSystemStates();
+                // Update the note icon on the map to reflect if a note exists
+                const systemElement = document.querySelector(`[data-id="${currentEditingSystemId}"]`);
+                if (systemElement) {
+                    const noteIcon = systemElement.querySelector('.note-icon');
+                    if (noteIcon) {
+                        if (note) {
+                            noteIcon.classList.add('has-note');
+                        } else {
+                            noteIcon.classList.remove('has-note');
+                        }
+                    }
+                }
+            }
+            closeNoteModal();
+            showMessageBox("Note Saved", "Your note has been successfully saved.");
+        });
+
+        // Event listener for canceling note edit (no changes)
+        cancelNoteButton.addEventListener('click', closeNoteModal);
+
+        // Close modal if clicking outside the modal content (no changes)
+        noteModalOverlay.addEventListener('click', (e) => {
+            if (e.target === noteModalOverlay) {
+                closeNoteModal();
+            }
+        });
+
+        // Function to update the displayed counts (UPDATED to include scanned count)
+        function updateCounts() {
+            totalSystemsSpan.textContent = starSystemsData.length;
+            const exploredCount = Object.values(systemStates).filter(state => state.explored).length;
+            const scannedCount = Object.values(systemStates).filter(state => state.scanned).length;
+            exploredCountSpan.textContent = exploredCount;
+            scannedCountSpan.textContent = scannedCount; // Update scanned count
+            infoPanel.classList.remove('hidden');
+        }
+
+        // Function to render the starmap (UPDATED for new format and notes/scanned icons)
+        function renderStarmap() {
+            starmapContainer.innerHTML = ''; // Clear existing systems
+            starSystemsData.forEach((system, index) => {
+                const systemElement = document.createElement('span');
+                // Get current state for the system, or initialize if not present
+                const currentSystemState = systemStates[system.id] || { explored: false, note: '', scanned: false };
+
+                // Assign point class based on difficulty, or point4 as default
+                const pointClass = system.point ? `point${system.point}` : 'point4';
+                systemElement.className = `mappoint ${pointClass} ${currentSystemState.explored ? 'explored' : ''}`;
+                systemElement.style.left = `${system.x}%`;
+                systemElement.style.top = `${system.y}%`;
+                systemElement.dataset.id = system.id; // Store ID for tracking
+
+                // Main system name/icon link
+                const systemLink = document.createElement('a');
+                systemLink.className = 'system-link'; // New class for clearer targeting
+                systemLink.href = `/starfield/starsystem/${index + 1}/`; // Dummy href
+
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'pictofont';
+                // Use Font Awesome icons: solid dot-circle for main, regular circle for others (unexplored)
+                // And solid check-circle for explored state
+                if (currentSystemState.explored) {
+                    iconSpan.classList.add('fas', 'fa-check-circle');
+                } else if (system.point === 'main') {
+                    iconSpan.classList.add('fas', 'fa-dot-circle');
+                } else {
+                    iconSpan.classList.add('far', 'fa-circle');
+                }
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'namesecondary';
+                nameSpan.textContent = system.name;
+
+                systemLink.appendChild(iconSpan);
+                systemLink.appendChild(nameSpan);
+                systemElement.appendChild(systemLink);
+
+                // Add the note icon
+                const noteIcon = document.createElement('i');
+                noteIcon.className = 'fas fa-sticky-note note-icon';
+                if (currentSystemState.note) {
+                    noteIcon.classList.add('has-note'); // Add class if note exists
+                }
+                systemElement.appendChild(noteIcon); // Append note icon directly to systemElement
+
+                // Add the scan icon
+                const scanIcon = document.createElement('i');
+                scanIcon.className = 'fas fa-eye scan-icon'; // Initial unscanned icon
+                if (currentSystemState.scanned) {
+                    scanIcon.classList.add('scanned'); // Add class if scanned
+                }
+                systemElement.appendChild(scanIcon); // Append scan icon directly to systemElement
+
+
+                // Event Listeners for each component within the systemElement
+                systemElement.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // Prevent drag from starting if clicking any part of the system element
+                });
+
+                // Click handler for the main system link (icon + name)
+                systemLink.addEventListener('click', (e) => {
+                    e.preventDefault(); // Prevent default link navigation
+                    toggleExplored(system.id, systemElement, iconSpan);
+                });
+
+                // Click handler for the note icon
+                noteIcon.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Stop propagation to prevent systemLink or systemElement click
+                    openNoteModal(system.id, currentSystemState.note);
+                });
+
+                // Click handler for the scan icon
+                scanIcon.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation(); // Stop propagation to prevent systemLink or systemElement click
+                    toggleScanned(system.id, scanIcon);
+                });
+
+                starmapContainer.appendChild(systemElement);
+            });
+            updateCounts();
+        }
+
+        // Function to toggle explored state (UPDATED to use systemStates)
+        function toggleExplored(id, element, iconElement) {
+            // Ensure the system entry exists in systemStates
+            if (!systemStates[id]) {
+                systemStates[id] = { explored: false, note: '', scanned: false };
+            }
+
+            if (systemStates[id].explored) {
+                systemStates[id].explored = false;
+                element.classList.remove('explored');
+                iconElement.classList.remove('fas', 'fa-check-circle');
+                const system = starSystemsData.find(s => s.id === id);
+                if (system && system.point === 'main') {
+                    iconElement.classList.add('fas', 'fa-dot-circle');
+                } else {
+                    iconElement.classList.add('far', 'fa-circle');
+                }
+            } else {
+                systemStates[id].explored = true;
+                element.classList.add('explored');
+                iconElement.classList.remove('fas', 'fa-dot-circle', 'far', 'fa-circle');
+                iconElement.classList.add('fas', 'fa-check-circle');
+            }
+            saveSystemStates(); // Save updated state
+            updateCounts();
+        }
+
+        // NEW: Function to toggle scanned state
+        function toggleScanned(id, scanIconElement) {
+            if (!systemStates[id]) {
+                systemStates[id] = { explored: false, note: '', scanned: false };
+            }
+
+            if (systemStates[id].scanned) {
+                systemStates[id].scanned = false;
+                scanIconElement.classList.remove('scanned');
+            } else {
+                systemStates[id].scanned = true;
+                scanIconElement.classList.add('scanned');
+            }
+            saveSystemStates();
+            updateCounts();
+        }
+
+        // Reset functionality (UPDATED to clear notes and scanned status as well)
+        resetButton.addEventListener('click', () => {
+            showMessageBox(
+                "Confirm Reset",
+                "Are you sure you want to reset all explored systems, notes, and scanned statuses? This action cannot be undone."
+            );
+            setTimeout(() => {
+                systemStates = {}; // Clear all states (explored, notes, and scanned)
+                saveSystemStates();
+                renderStarmap(); // Re-render to update all systems
+                showMessageBox("Reset Complete", "All data has been reset.");
+            }, 500);
+        });
+
+        // Pan and Zoom variables and event listeners
+        window.onload = async function() {
+            loadSystemStates(); // Load states on initialization
+            renderStarmap();
+
+            let scale = 1;
+            let panX = 0;
+            let panY = 0;
+            const minScale = 0.25;
+            const maxScale = 5;
+            const zoomStep = 0.25;
+            const zoomSensitivity = 0.003;
+
+            let isDragging = false;
+            let startMouseX = 0;
+            let startMouseY = 0;
+            let lastPinchDistance = null;
+
+            const zoomLevelLabel = document.getElementById('zoomLevelLabel');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+
+            function updateZoomLabel() {
+                zoomLevelLabel.textContent = `${Math.round(scale * 100)}%`;
+            }
+
+            function updateTransform() {
+                starmapContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+                updateZoomLabel();
+            }
+
+            function zoomAt(clientX, clientY, newScale) {
+                const oldScale = scale;
+                scale = Math.min(Math.max(minScale, newScale), maxScale);
+                const rect = starmapContainer.getBoundingClientRect();
+                const mouseX = clientX - rect.left;
+                const mouseY = clientY - rect.top;
+                const worldX = (mouseX - panX) / oldScale;
+                const worldY = (mouseY - panY) / oldScale;
+                panX = mouseX - worldX * scale;
+                panY = mouseY - worldY * scale;
+                updateTransform();
+            }
+
+            function zoomByStep(direction) {
+                const rect = starmapContainer.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                zoomAt(centerX, centerY, scale + direction * zoomStep);
+            }
+
+            zoomInBtn.addEventListener('click', () => zoomByStep(1));
+            zoomOutBtn.addEventListener('click', () => zoomByStep(-1));
+
+            document.addEventListener('keydown', (e) => {
+                if (e.target.closest('textarea') || e.target.closest('input')) return;
+                if (e.key === '+' || e.key === '=') {
+                    e.preventDefault();
+                    zoomByStep(1);
+                } else if (e.key === '-' || e.key === '_') {
+                    e.preventDefault();
+                    zoomByStep(-1);
+                }
+            });
+
+            document.getElementById('chooseSaveFolderBtn').addEventListener('click', chooseSaveFolder);
+            document.getElementById('saveToFolderBtn').addEventListener('click', saveToFolder);
+            document.getElementById('refreshSavesBtn').addEventListener('click', refreshSaveFileList);
+            const openSaveFileInput = document.getElementById('openSaveFileInput');
+            document.getElementById('saveFileSelect').addEventListener('change', (e) => {
+                const fileName = e.target.value;
+                if (fileName === '__browse__') {
+                    openSaveFileInput.click();
+                    e.target.value = '';
+                } else if (fileName) {
+                    openSaveFromFolder(fileName);
+                }
+            });
+            openSaveFileInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) openSaveFromFile(file);
+                e.target.value = '';
+            });
+
+            saveDirectoryHandle = await loadPersistedSaveDirectoryHandle();
+            await refreshSaveFileList();
+
+            starmapContainer.addEventListener('mousedown', (e) => {
+                if (e.target === starmapContainer || !e.target.closest('.mappoint')) {
+                    isDragging = true;
+                    startMouseX = e.clientX;
+                    startMouseY = e.clientY;
+                    starmapContainer.classList.add('grabbing');
+                }
+            });
+
+            starmapContainer.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startMouseX;
+                const dy = e.clientY - startMouseY;
+                panX += dx / scale;
+                panY += dy / scale;
+                startMouseX = e.clientX;
+                startMouseY = e.clientY;
+                updateTransform();
+            });
+
+            starmapContainer.addEventListener('mouseup', () => {
+                isDragging = false;
+                starmapContainer.classList.remove('grabbing');
+            });
+
+            starmapContainer.addEventListener('mouseleave', () => {
+                isDragging = false;
+                starmapContainer.classList.remove('grabbing');
+            });
+
+            starmapContainer.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY * -zoomSensitivity;
+                zoomAt(e.clientX, e.clientY, scale + delta);
+            }, { passive: false });
+
+            starmapContainer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    if (e.target.closest('.mappoint')) return;
+                    isDragging = true;
+                    startMouseX = e.touches[0].clientX;
+                    startMouseY = e.touches[0].clientY;
+                    starmapContainer.classList.add('grabbing');
+                } else if (e.touches.length === 2) {
+                    isDragging = false;
+                    lastPinchDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+            }, { passive: true });
+
+            starmapContainer.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - startMouseX;
+                    const dy = e.touches[0].clientY - startMouseY;
+                    panX += dx / scale;
+                    panY += dy / scale;
+                    startMouseX = e.touches[0].clientX;
+                    startMouseY = e.touches[0].clientY;
+                    updateTransform();
+                } else if (e.touches.length === 2 && lastPinchDistance !== null) {
+                    e.preventDefault();
+                    const dist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    const pinchScale = scale * (dist / lastPinchDistance);
+                    zoomAt(centerX, centerY, pinchScale);
+                    lastPinchDistance = dist;
+                }
+            }, { passive: false });
+
+            starmapContainer.addEventListener('touchend', () => {
+                isDragging = false;
+                lastPinchDistance = null;
+                starmapContainer.classList.remove('grabbing');
+            });
+
+            updateTransform();
+        };
+    </script>
+</body>
+</html>

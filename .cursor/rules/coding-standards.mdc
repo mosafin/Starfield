@@ -1,0 +1,78 @@
+---
+description: Coding standards for safe development on the Starfield Starmap Explorer
+alwaysApply: true
+---
+
+# Coding Standards — Starfield Starmap Explorer
+
+## Language & Syntax
+
+- This codebase uses **modern JavaScript (ES6+)**. Use `const`, `let`, arrow functions, `async/await`, template literals, and destructuring freely.
+- Do NOT downgrade to `var` or ES5-style code — the original codebase is already ES6+ and mixing would be inconsistent.
+- Do not introduce classes, modules, imports, or exports (single-file architecture).
+
+## File Structure
+
+- Everything lives in **one HTML file**.
+- CSS is in the `<style>` block. JS is in the `<script>` block. No separate files.
+- Do not split the file. Do not add `<link>` or `<script src="">` tags for new dependencies.
+- Tailwind CSS and Font Awesome CDN links are already present — use them; don't duplicate them.
+
+## Functions & Naming
+
+- Preserve all existing function names — they may be referenced by event listeners or other functions.
+- New functions should follow existing naming style: camelCase, short and descriptive.
+- Async functions that use the File System Access API must include a `try/catch` and a graceful fallback.
+
+## State Management
+
+- All exploration, scan, and note state lives in `systemStates{}`.
+- Any mutation to `systemStates` must be followed immediately by `saveSystemStates()`.
+- `starSystemsData[]` is read-only static data — never mutate it at runtime.
+- Pan/zoom state lives in the transform variables on the map container — do not add a parallel copy.
+
+## Save System — Critical Rules
+
+- `saveSystemStates()` writes `systemStates` to `localStorage`. Call it after **every** state mutation.
+- `loadSystemStates()` reads from `localStorage`. Called once on boot — do not call it again after user interaction.
+- `applyLoadedSaveData(data)` merges a loaded JSON object into `systemStates` and calls `saveSystemStates()`. It does not replace the whole object blindly — preserve any keys not present in the loaded file.
+- File System Access API calls must be wrapped in `if (window.showDirectoryPicker)` guards.
+
+## Pan / Zoom — Critical Rules
+
+- `mouseup` / `pointerup` listeners that clear the pan state must be on `document`, not just the map container — otherwise releasing outside the window leaves the map stuck in drag mode.
+- The map container cursor must be reset to `grab` after drag ends (remove `grabbing` class).
+- Zoom must be bounded — enforce min/max scale to prevent the map disappearing off-screen.
+
+## DOM
+
+- Map points are rendered from `starSystemsData[]`. To update a map point's visual state (explored colour, note icon), update the relevant DOM element directly by `id` or class — do not re-render the whole map.
+- The info panel content is replaced on each system click — that is expected behaviour.
+- The note modal is a shared singleton — populate it with the current system's data before showing it.
+
+## CSS
+
+- Use existing Tailwind utility classes for layout and spacing.
+- Use the existing custom CSS variables and classes (`.mappoint`, `.point1`–`.point4`, `.note-icon`, `.scan-icon`, `.info-panel`) for consistency.
+- New map-specific styles go in the `<style>` block, not as inline styles.
+- Dark space aesthetic must be preserved: background `#0d1117`, dark surfaces, muted star colours.
+- Do not add light backgrounds or bright white UI elements — this is a night-mode-only interface.
+
+## Browser Compatibility
+
+- Target: **Chrome** (primary — required for File System Access API).
+- Firefox and Safari: all features except folder-based save/load should work. Document any new API that has limited support.
+- No polyfills — if an API isn't available, detect and gracefully degrade (e.g. fall back to download link).
+
+## Error Handling
+
+- Use `try/catch` for all `async` File System API calls and all `JSON.parse` calls.
+- Use the existing `showMessageBox(title, message)` for user-facing error messages.
+- Do not use `alert()` except for destructive confirmation dialogs (e.g. "Reset all exploration?").
+- Silent failures are acceptable for non-critical UI (e.g. minimap, counter animation) but not for save/load.
+
+## Comments
+
+- Add comments only where logic is non-obvious.
+- Section headers use `/* === SECTION === */` style.
+- Do not add explanatory comments to every line.

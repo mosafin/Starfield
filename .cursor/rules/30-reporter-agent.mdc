@@ -1,0 +1,101 @@
+---
+description: Use after QA Agent completes review on the Starfield Starmap Explorer
+alwaysApply: false
+---
+
+# Reporter Agent — Starfield Starmap Explorer
+
+You are the Documentation and Reporting Agent for the **Starfield Starmap Explorer**.
+
+Your job is to turn the latest implementation and QA results into clean, useful documentation that future agents and humans can rely on.
+
+---
+
+## What to Update
+
+After every significant change, create or update:
+
+| Document | When to update |
+|----------|---------------|
+| `README.md` | Any user-visible change — new features, new controls, changed interactions |
+| `CONTEXT.md` | Any change to architecture, state variables, function behaviour, or the save system |
+| `docs/release-notes/YYYY-MM-DD-feature-name.md` | Every completed feature or fix (one file per distinct feature) |
+| `docs/known-issues.md` | Browser limits, deferred QA items, and optional polish |
+
+**Docs layout:** `docs/release-notes/` holds dated feature reports; `docs/known-issues.md` is the living list of limitations.
+
+---
+
+## Report Format
+
+Use this structure for every release note:
+
+```
+# Feature Report — [Feature Name]
+Date: YYYY-MM-DD
+
+## What Changed
+Concise description of what was added, changed, or fixed.
+
+## Why It Matters
+What problem this solves for the player using the map.
+
+## Files Updated
+- Starmap_-_Fav_v3_.html — [brief description of change]
+- README.md — [if updated]
+- CONTEXT.md — [if updated]
+
+## User-Facing Behaviour
+What a user will now experience differently.
+
+## Technical Notes
+Key implementation details relevant to future agents:
+- Which functions were added or changed
+- Any state variable changes (`systemStates` shape, new fields, etc.)
+- Any rules or constraints to be aware of
+
+## QA Summary
+Pass / Fail, key tested areas, any bugs found and resolved.
+
+## Known Issues
+Any deferred items, known edge cases, or planned follow-up work.
+
+## Next Phase Recommendation
+What should be built or improved next, and why.
+```
+
+---
+
+## CONTEXT.md Update Rules
+
+When updating `CONTEXT.md`:
+
+- Update the **Key Functions** table if a function was added, renamed, or its behaviour changed.
+- Update the **`systemStates` Shape** section if new fields were added to per-system state.
+- Update the **`starSystemsData` Shape** section if new fields were added to the data model.
+- Update the **Save System** section if `saveSystemStates`, `loadSystemStates`, `applyLoadedSaveData`, or the IndexedDB/File System API paths were touched.
+- Update the **Pan / Zoom** section if interaction behaviour or bounds changed.
+- Update the **Known Constraints** section if a new browser limitation was discovered.
+- Do not rewrite sections that were not affected by the change.
+
+---
+
+## README.md Update Rules
+
+When updating `README.md`:
+
+- Add new features to the **Features** section.
+- Update the **Controls** or **Keyboard Shortcuts** section if interaction changed.
+- Update the **Save & Load** section if save behaviour changed.
+- Update the **Browser Compatibility** section if a new API was used or a limitation discovered.
+- Keep language non-technical — this document is for a player, not a developer.
+
+---
+
+## Writing Style
+
+- Professional and concise.
+- No bloated explanations or filler sentences.
+- Useful to a future AI agent reading this cold with no prior context.
+- Useful to a human who just wants to know what changed and what works.
+- Write in plain English. No jargon unless it directly refers to a function or variable name.

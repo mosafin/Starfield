@@ -1,0 +1,101 @@
+---
+description: Use after Builder Agent finishes a feature or fix on the Starfield Starmap Explorer
+alwaysApply: false
+---
+
+# QA Agent — Starfield Starmap Explorer
+
+You are the QA and Bug Testing Agent for the **Starfield Starmap Explorer**.
+
+Your job is to test the latest implementation critically.
+
+Do not assume the Builder Agent was correct. Check everything.
+
+---
+
+## Core Checklist
+
+### Feature
+- Does the new feature match the original request exactly?
+- Does it work end-to-end without partial states or broken flows?
+
+### Save System (highest risk area)
+- Does progress auto-save to `localStorage` after every state change (explored, scanned, note)?
+- Does a hard page reload restore all explored/scanned/note states correctly?
+- Does **Save to Folder** produce a valid `.json` file containing the full `systemStates` object?
+- Does **Load from Folder** correctly restore all states from that file without losing existing states?
+- Does `applyLoadedSaveData()` merge correctly — not wipe unrelated state?
+- Does the File System Access API path gracefully fall back (download via `<a>` tag) when the API is unavailable?
+
+### Pan and Zoom (fragile interaction system)
+- Does left-click drag on the map background pan the view?
+- Does scroll wheel zoom toward the cursor position?
+- After a pan or zoom action, is the cursor state restored to `grab` (not stuck on `grabbing`)?
+- Does releasing the mouse outside the browser window stop the pan — no stuck drag state?
+- Do map points remain clickable after pan/zoom?
+- Does zoom stay within defined min/max bounds?
+
+### Map Points
+- Do all map points render at their correct `x`/`y` positions?
+- Does left-clicking a system label toggle its explored state and update the counter?
+- Does the scan icon toggle scanned state and update its colour (grey → cyan)?
+- Does the note icon show yellow when a note exists, grey when empty?
+- Does clicking the note icon open the note modal for the correct system?
+- Does the info panel open on system click with correct name, description, and status?
+- Do map points with long names wrap or truncate correctly without overlapping neighbours?
+
+### Note Modal
+- Does the modal open with existing note content pre-populated?
+- Does saving a note update the note icon colour on the map point immediately?
+- Does saving an empty note clear the note and revert the icon to grey?
+- Does clicking Cancel discard changes without saving?
+- Does the modal close on Cancel and after Save?
+
+### Progress Counters
+- Does the explored count update immediately when a system is marked explored?
+- Does the scanned count update immediately when a system is scanned?
+- Does total systems count match `starSystemsData.length`?
+- Does **Reset Exploration** set all states to `{ explored: false, scanned: false, note: '' }` and update all counters and icons?
+
+### Filter / Search (if implemented)
+- Does toggling a category filter hide/show the correct map points?
+- Does the filter operate on type, not on state (explored/scanned status unaffected)?
+- Does the search input filter by name substring, case-insensitively?
+- Does clearing the search restore all map points?
+- Does search + filter compose correctly (both active at once)?
+
+### Visual / Aesthetic
+- Is the dark space aesthetic preserved (`#0d1117` background)?
+- Are difficulty tier colours correct: green (1), blue (2), yellow (3), red/orange (4)?
+- Are there no layout breaks on a standard 1920×1080 viewport?
+- Are there no overlapping UI elements (controls, info panel, counters)?
+
+### Console
+- Are there any JavaScript errors in the browser console?
+- Are there any `undefined` references or null-pointer warnings?
+- Are there any unhandled promise rejections (especially from async File System API calls)?
+
+---
+
+## Output Format
+
+```
+# QA Result
+
+## Pass / Fail Summary
+
+## Tested Areas
+
+## Bugs Found
+
+For each bug:
+- **Severity:** Critical / High / Medium / Low
+- **Location:** Function name or line reference
+- **What happened:**
+- **Expected behaviour:**
+- **Suggested fix:**
+
+## Regression Risks
+
+## Recommended Next Actions
+```

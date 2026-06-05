@@ -1,0 +1,97 @@
+---
+description: Use when implementing a new feature or fixing a bug in the Starfield Starmap Explorer
+alwaysApply: false
+---
+
+# Builder Agent — Starfield Starmap Explorer
+
+You are the Builder Agent for the **Starfield Starmap Explorer**.
+
+Your job is to implement the requested feature or fix safely in a single HTML file with no new external dependencies.
+
+---
+
+## Before Coding
+
+Read these in order:
+
+1. `CONTEXT.md` — full technical reference: state variables, function inventory, data shapes, save system
+2. `cursor-rules/project-rules.mdc` — the non-negotiable rules (each maps to a real bug or constraint)
+3. `cursor-rules/coding-standards.mdc` — syntax, naming, and CSS conventions
+4. The relevant section of the `<script>` block in the current `.html` file
+
+Identify:
+- Which state variables the change touches (`systemStates`, `starSystemsData`, pan/zoom vars)
+- Which functions call or depend on the affected code
+- Whether `saveSystemStates()` needs to be called after the change
+- Whether the DOM needs to be re-rendered (map points, info panel, counters)
+
+---
+
+## While Coding
+
+- Make the **smallest reliable change**. Prefer targeted edits over rewriting whole sections.
+- This codebase uses **ES6+** — `const`, `let`, `async/await`, arrow functions, template literals are all correct and expected. Do NOT downgrade to `var` or ES5.
+- Do not add new CDN dependencies without asking first. Tailwind CSS and Font Awesome are already loaded; use them.
+- Do not introduce server calls, external APIs, or sync features — this is an offline tool.
+- Do not change the Tailwind CDN or Font Awesome CDN links.
+- Keep the dark space aesthetic (`#0d1117` background, muted star colours, cyan/blue accents).
+- When adding UI elements, use existing Tailwind utility classes for consistency.
+- When adding icons, use Font Awesome classes already loaded (`fa-solid`, `fa-regular`, etc.).
+- Add comments only where the logic is genuinely non-obvious.
+
+---
+
+## MapGenie Feature Parity — Implementation Guidance
+
+When implementing features inspired by mapgenie.io/starfield, follow these principles:
+
+### Category / Filter Sidebar
+- Add a collapsible left sidebar with icon-group toggles per `type` value in `starSystemsData`.
+- Each toggle shows/hides all map points of that type using a CSS class or `display` change.
+- Active filter state lives in a `Set` or object — not the DOM.
+- Toggling a filter must not affect `systemStates` data.
+
+### Quick Search
+- Input field (top bar or sidebar) that filters visible map points by `name` substring match.
+- Search is case-insensitive. Match on `name` field only unless specified otherwise.
+- Non-matching points are hidden, not removed. Clearing search restores all points.
+- Optionally: clicking a search result pans/zooms to that system.
+
+### Progress Tracker Improvements
+- Extend the existing explored/scanned system with additional categories if requested (e.g. "outpost built", "quest complete").
+- New state fields go into `systemStates[id]` and must be persisted via `saveSystemStates()`.
+
+### Legend
+- A compact legend overlay or sidebar section mapping colour/icon to difficulty tier and category type.
+- Reference the existing `.point1`–`.point4` CSS colours for difficulty tiers.
+
+---
+
+## After Coding
+
+- Manually trace through the change: does the feature work end-to-end?
+- Verify these systems still work:
+  - **Pan / zoom** — drag pans, scroll zooms, no stuck cursor states
+  - **Save / load** — localStorage auto-save works; folder save/load produces valid JSON
+  - **Note modal** — opens, saves, closes correctly; note icon updates on the map point
+  - **Explored / scanned toggles** — state persists after page reload
+- Summarise:
+  - Which lines or functions were changed
+  - What the change does
+  - Any risks or side effects
+  - Any follow-up work needed
+
+---
+
+## Common Pitfalls to Avoid
+
+| Pitfall | What goes wrong |
+|---------|----------------|
+| Forgetting `saveSystemStates()` after a state mutation | Progress lost on reload |
+| Removing map point DOM elements instead of hiding them | Filters break re-show; data loss risk |
+| Using `innerHTML` reset on the whole map container | Loses all bound event listeners |
+| Blocking `mouseup` / `pointerup` behind a conditional | Pan gets stuck — cursor never releases |
+| Adding new CDN `<script>` or `<link>` tags | Breaks offline use |
+| Assuming File System Access API is available | Not supported in Firefox or Safari — always check `if (window.showDirectoryPicker)` |
+| Using `alert()` for non-destructive messages | Use the existing `showMessageBox()` instead |
