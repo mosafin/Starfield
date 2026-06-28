@@ -1,15 +1,44 @@
 # Known Issues — Starfield Starmap Explorer
 
-Living list of limitations, deferred QA items, and optional polish. Last reviewed: 2026-06-06 (Phases 22–25 QA fixes).
+Living list of limitations, deferred QA items, and optional polish. Last reviewed: 2026-06-28 (Phase 40 — v1.0.0 RC).
+
+---
+
+## Critical
+
+_None at v1.0.0 RC._
 
 ---
 
 ## Medium
+### Timeline lacks timestamps for legacy progress
+- Phase 29 adds optional nested fields (`startedAt`, `exploredAt`, `plannedAt`, `surveyCompletedAt`, `milestones.enteredAt`) when new actions occur.
+- Older saves may omit events that predate these hooks unless the underlying record already had `completedAt` / `discoveredAt`.
 
-### Knowledge Atlas is a starter seed only
-- Phase 25 ships **8** framework entries (4 companions, 2 homes, The Lodge, powers placeholder).
-- Full Starfield population (all vendors, magazines, powers, etc.) is deferred to future catalogue packs.
-- Companion/home locations are atlas approximations based on mission and location catalogues.
+### Knowledge timeline events use system exploration time
+- `knowledge_unlocked` events share the system's `exploredAt` — not per-entry unlock tracking.
+
+### Planning scores are heuristics, not game rankings
+- Phase 28 **Planning Score** subscores (Exploration, Resources, Knowledge, Missions, Overall) use catalogue + saved progress only.
+- They help compare systems side-by-side; they do not reflect in-game difficulty tuning, vendor stock, or dynamic quest availability.
+
+### Shattered Space pack — catalogue depth only
+- Phase 38 loads validated Shattered Space missions, Lantana planets, and linked locations via `atlasPack_shatteredSpace`.
+- Lantana remains on the Core star map; the pack adds catalogue depth — not new map coordinates.
+- `dazra_kavnyk` is a catalogue-only Kavnyk reference (`dlc_unmapped`) without a starmap system id.
+- No Shattered Space knowledge rows until validated entries exist.
+
+### Mission Atlas metadata is partial by design
+- Phase 34 adds optional mission metadata (start location, prerequisites, follow-ups, recommended level from planet data).
+- **Rewards** and **choices** are empty unless explicitly catalogued — no guessed loot or branching outcomes.
+- Side quests and activities may lack `primaryLocationId` when multiple POIs or ambiguous `locationName` strings apply.
+
+- Phase 30 ships **45** validated entries (Pack 1 + ship vendors/manufacturers/services, stations, medical, trainers, district magazines, unique weapons/armour, landmarks, crew hubs).
+- Individual skill magazine **issues** are not mapped — district-level magazine vendors only (MAST, Ryujin Tower, The Rock).
+- Exact temple POIs and per-power unlock sites remain framework rows with null `systemId`.
+- Recruitable crew beyond the Constellation hub at The Lodge are not individually catalogued until validated POIs exist.
+- Entries with null `systemId` (power/temple frameworks) or null `locationId` (Barrett, Vasco, Dream Home) show **Show on Map unavailable** — by design, not broken refs.
+- Vendor entries link to city/settlement POIs, not separate shop interiors in `locationData`.
 
 ### Route Planner uses straight-line atlas distances
 - Jump paths are computed from catalogue `x`/`y` positions, not in-game grav-drive lane topology.
@@ -21,14 +50,17 @@ Living list of limitations, deferred QA items, and optional polish. Last reviewe
 - **Continue Playing** picks active Main Quest first, then any active mission, then the Missions tab recommendation engine.
 - Resource watchlist uses catalogue `systemsByResource` indexes only (not player survey totals).
 
-### Folder save/load not verified in automated QA
-- **Behaviour:** Save actions moved into **More ▾** menu; code paths unchanged (`getSavePayload()` / `applyLoadedSaveData()`).
-- **Phase 22 QA:** Static + layout audit only; folder picker not exercised end-to-end.
-- **Workaround:** Use Save download + Open save file picker in any browser.
+### Folder save/load — Chrome/Edge only
+- **Behaviour:** Folder picker unavailable in Firefox/Safari.
+- **Workaround:** Use **Export Atlas** + **Open save** (see `docs/Backup-Restore-Guide.md`).
+- **Status:** Documented limitation — not a bug.
 
-### Pan/zoom manual smoke not re-run (Phase 22)
-- **Behaviour:** Pan/zoom assumed stable; not re-tested after top UI chrome refactor.
-- **Workaround:** Quick manual check — drag map, scroll zoom, confirm ℹ buttons still clickable after pan.
+### F key requires selected system on Star Systems view
+- Switching to another tab clears `selectedSystemId` when details close.
+- **Workaround:** Use Galactic Search **Show on Map** or click the system on the map.
+
+### Pan/zoom manual smoke — RC pass (Phase 39)
+- Automated layout audit passes at 1280–1920px; pan/zoom spot-check recommended after local file updates.
 
 ### Note modal not re-verified (Phase 21)
 - **Behaviour:** Save/cancel/icon colour flow not browser-tested this cycle.
@@ -60,13 +92,21 @@ Living list of limitations, deferred QA items, and optional polish. Last reviewe
 ### Stale HTML after local file updates
 - Opening the `.html` file directly may show an older cached version (missing ℹ buttons or locations panel). Hard refresh (**Ctrl+F5**) loads the latest build.
 
+### Planet catalogue uses numbered stubs for procedural bodies
+- Phase 32 adds numbered planet entries (`System I`, `System II`, …) for all 120 systems with `level: null` and `resources: []`.
+- Named in-game bodies (Jemison, Kreet, Dazra, etc.) retain validated survey data where known; stubs are catalogue anchors — not guessed resources.
+
+### Location catalogue covers named POIs only
+- **63** validated locations — major cities, districts, quest hubs, starstations, temples, mines, labs (Phase 33). ~98 systems have planets but no named surface POI (intentional — no guessed settlements).
+- **Serpentis** has no validated named POI in mission catalogue yet.
+
 ### Planet catalogue is partial
-- `planetData` has **149** bodies (Pack 1 + Pack 2); ~95 systems still have no catalogue entries.
-- Pack 2 bodies mostly use `level: null` and `resources: []` — not guessed.
+- `planetData` has **558** bodies (Phase 32 Core Atlas); all 120 systems have at least one entry.
+- Numbered stub bodies use `level: null` and `resources: []` — survey data added only when validated.
 - Legacy `wolf_i` coexists with named Wolf bodies (Chthonia, Etherea, Pontem).
 
 ### Location catalogue is partial
-- `locationData` has **37** POIs including Neon districts, Akila landmarks, Wolf Den, and Jaffa quest sites.
+- `locationData` has **63** POIs including Neon districts, Akila landmarks, Unity/Procyon temples, and Shattered Space sites.
 - One entry (`dazra_kavnyk`) references Kavnyk/Va'ruun'kai with `systemId: null` (not on starmap).
 - Orbital/system POIs use `planetId: null` by design (Stroud-Eklund, Trident, UC Vigilance, Crucible, The Key, The Almagest, The Colander).
 - **Two Den entries:** `the_den` (Narion) and `the_den_wolf` (Wolf/Chthonia); missions list Wolf.
@@ -107,6 +147,17 @@ Living list of limitations, deferred QA items, and optional polish. Last reviewe
 | Mobile details panel ignored dynamic bottom reserve | QA fix — `@media 768px` uses `var(--bottom-ui-reserve)` |
 | Zoom controls active on non-map tabs | QA fix — `.map-controls-primary` hidden when `view !== 'systems'` |
 | `qa-migration-check.js` skipped routes round-trip | QA fix — v2 round-trip asserts `routes` preserved |
+| Ten-tab row crowded top-left chrome | Phase 26 — primary tabs + **More ▾** for secondary views |
+| Knowledge Atlas starter seed only (8 entries) | Phase 27 Pack 1 — **22** validated entries; magazine/temple detail deferred |
+| No side-by-side system comparison | Phase 28 — Compare & Planning Mode (runtime, up to 4 systems) |
+| No chronological adventure history | Phase 29 — Galaxy Timeline (generated from save progress) |
+| Knowledge Atlas missing ship/medical/trainer detail | Phase 30 Pack 2 — **45** entries, detail panel, related links, enhanced search |
+| No unified atlas validation / expansion tooling | Phase 31 — `validateAtlas()`, `getAtlasStatistics()`, `getExpansionReadiness()`, `AtlasManager` |
+| Core Atlas missing planets in most systems | Phase 32 — **558** planets, **53** locations, 100% system planet coverage |
+| Location atlas shallow in priority hubs | Phase 33 — **63** locations, category standardisation, location coverage stats |
+| Mission tracker lacked reference metadata | Phase 34 — Mission Atlas 2.0: metadata, detail view, filters, cross-links |
+| No unified RC regression runner | Phase 40 — `run-full-regression.js`, save compatibility, performance baseline |
+| Stale view-tab count in phases 23–25 QA | Phase 40 — updated for 13 tabs (Fleet + Insights) |
 
 ---
 

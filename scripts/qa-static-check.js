@@ -66,6 +66,36 @@ if (script.includes('getUILayoutReport') && script.includes('UI_LAYOUT_TARGETS')
   pass('UI layout diagnostics: getUILayoutReport');
 } else fail('High', 'Missing getUILayoutReport helper');
 
+if (script.includes('getAtlasDataReadinessReport') && script.includes('readyForExpansion')) {
+  pass('Catalogue readiness: getAtlasDataReadinessReport');
+} else fail('High', 'Missing getAtlasDataReadinessReport');
+
+if (script.includes('function validateAtlas(') && script.includes('function rebuildAtlasIndexes(')) {
+  pass('Atlas manager: validateAtlas + rebuildAtlasIndexes');
+} else fail('High', 'Missing Atlas manager validation pipeline');
+
+if (script.includes('AtlasManager') && script.includes('getAtlasStatistics')) {
+  pass('Atlas manager: statistics API');
+} else fail('High', 'Missing Atlas statistics API');
+
+if (script.includes('function getAtlasCompletenessReport(')) {
+  pass('Atlas manager: completeness report');
+} else fail('High', 'Missing getAtlasCompletenessReport');
+
+const planetBlockStatic = script.match(/const planetData = \[([\s\S]*?)\n        \];/);
+const planetCountStatic = planetBlockStatic ? (planetBlockStatic[1].match(/id: '/g) || []).length : 0;
+if (planetCountStatic >= 550) pass(`planetData Core Atlas count: ${planetCountStatic}`);
+else fail('High', `Expected at least 550 planets, got ${planetCountStatic}`);
+
+const locationBlockStatic = script.match(/const locationData = \[([\s\S]*?)\n        \];/);
+const locationCountStatic = locationBlockStatic ? (locationBlockStatic[1].match(/id: '/g) || []).length : 0;
+if (locationCountStatic >= 62) pass(`locationData Core Atlas count: ${locationCountStatic}`);
+else fail('High', `Expected at least 62 locations, got ${locationCountStatic}`);
+
+if (html.includes('id="viewTabsMoreBtn"') && script.includes('initViewTabsMoreMenu')) {
+  pass('View navigation: More menu for secondary tabs');
+} else fail('High', 'Missing view tabs More menu');
+
 if (script.includes('renderCommandCenterPanel') && script.includes('getCommandCenterRecommendations')) {
   pass('Command Center dashboard helpers present');
 } else fail('High', 'Missing Command Center dashboard helpers');
@@ -77,6 +107,11 @@ if (script.includes('renderRoutePlannerPanel') && script.includes('recomputeRout
 if (script.includes('knowledgeData') && script.includes('renderKnowledgeAtlasPanel') && script.includes('getKnowledgeForSystem')) {
   pass('Knowledge Atlas catalogue and panel helpers present');
 } else fail('High', 'Missing Knowledge Atlas helpers');
+
+const knowledgeBlockStatic = script.match(/const knowledgeData = \[([\s\S]*?)\];/);
+const knowledgeCountStatic = knowledgeBlockStatic ? (knowledgeBlockStatic[1].match(/id: '/g) || []).length : 0;
+if (knowledgeCountStatic >= 40) pass(`knowledgeData Pack 2 count: ${knowledgeCountStatic}`);
+else fail('High', `Expected at least 40 knowledge entries, got ${knowledgeCountStatic}`);
 
 if (html.includes('id="mapControlsMoreBtn"') && html.includes('id="mapControlsMoreMenu"')) {
   pass('Compact map controls: More menu');
@@ -126,6 +161,44 @@ const dupes = Object.entries(seen).filter(([, arr]) => arr.length > 1);
 if (dupes.length > 0) {
   fail('Low', `Systems listed under multiple factions (${dupes.length}): e.g. ${dupes[0][0]} → ${dupes[0][1].join(', ')}`);
 } else pass('No duplicate faction list entries');
+
+// Runtime init smoke test — catches TDZ / early bindActiveUniverse crashes
+try {
+  const vm = require('vm');
+  const el = () => ({
+    style: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    appendChild() {}, addEventListener() {}, removeEventListener() {},
+    dataset: {}, setAttribute() {}, getAttribute: () => null,
+    replaceChildren() {}, replaceChild() {}, remove() {},
+    querySelector: () => null, querySelectorAll: () => [],
+    getBoundingClientRect: () => ({ top: 0, left: 0, width: 0, height: 0, right: 0, bottom: 0 }),
+    textContent: '', innerHTML: '', value: '', checked: false, selectedIndex: 0, options: []
+  });
+  const sandbox = {
+    document: {
+      getElementById: () => el(),
+      createElement: () => el(),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      documentElement: { style: { setProperty: () => {} } },
+      body: el()
+    },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    performance: { now: () => Date.now() },
+    URL: { createObjectURL: () => '', revokeObjectURL: () => {} },
+    ResizeObserver: class { observe() {} disconnect() {} },
+    getComputedStyle: () => ({ getPropertyValue: () => '' }),
+    console
+  };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(script, sandbox, { timeout: 15000 });
+  if (typeof sandbox.renderStarmap === 'function') pass('Runtime init smoke test (renderStarmap available)');
+  else fail('Critical', 'Runtime init completed but renderStarmap is missing');
+} catch (e) {
+  fail('Critical', 'Runtime init smoke test: ' + e.message);
+}
 
 console.log('=== QA Static Check ===');
 console.log('Passes:', passes.length);

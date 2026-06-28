@@ -1,5 +1,5 @@
 # Feature Report — Atlas Command Center (Phase 23)
-Date: 2026-06-06
+Date: 2026-06-28
 
 ## What Changed
 

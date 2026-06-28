@@ -1,0 +1,21 @@
+{
+  "name": "starfield-starmap-explorer",
+  "version": "1.0.0",
+  "channel": "release-candidate",
+  "released": "2026-06-28",
+  "appFile": "Starmap - Fav v3 .html",
+  "saveVersion": 2,
+  "atlasRegistryVersion": 2,
+  "catalogues": {
+    "systems": 120,
+    "planets": 558,
+    "locations": 63,
+    "missions": 122,
+    "knowledge": 45
+  },
+  "loadedPacks": ["core", "knowledge", "shattered-space"],
+  "requirements": {
+    "browser": "Modern Chromium, Firefox, or Safari with JavaScript enabled",
+    "network": "Optional — CDN fonts on first load unless cached"
+  }
+}

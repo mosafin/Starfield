@@ -1,0 +1,19 @@
+{
+  "recordedAt": "2026-06-28T09:45:35.159Z",
+  "appVersion": "1.0.0",
+  "saveVersion": 2,
+  "coldInitMs": 42.3,
+  "warmRebuildMs": 11.4,
+  "atlasStartupMs": null,
+  "indexRebuildMs": 1,
+  "validationMs": 2,
+  "searchIndexBuildMs": 3,
+  "galacticSearchMs": 3,
+  "timelineGenerationMs": 1,
+  "atlasInsightsMs": 11,
+  "knowledgeSearchMs": 0.002,
+  "routePlanningMs": 1,
+  "searchIndexEntries": 915,
+  "validationValid": true,
+  "warningCount": 2
+}

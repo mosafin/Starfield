@@ -111,5 +111,32 @@ migrateSaveToUniverseFormat({
 assert(saveRoot.universes.universe_1.systems.sol?.explored === true, 'universe_1 imported');
 assert(Object.keys(saveRoot.universes.universe_2.systems).length === 0, 'universe_2 stale data cleared');
 
+console.log('masterAtlas preserved on v2 round-trip');
+const masterPayload = {
+  version: 2,
+  activeUniverseId: 'universe_1',
+  universes: { universe_1: createEmptyUniverse('Universe 1') },
+  masterAtlas: { systemsVisited: { sol: true }, planetsSurveyed: {}, locationsDiscovered: {}, discoveryIds: { d1: true }, totalDiscoveries: 3 }
+};
+saveRoot = { version: 2, activeUniverseId: 'universe_1', universes: Object.fromEntries(UNIVERSE_IDS.map((id, i) => [id, createEmptyUniverse(`Universe ${i + 1}`)])), masterAtlas: getDefaultMasterAtlas() };
+migrateSaveToUniverseFormat(masterPayload);
+assert(saveRoot.masterAtlas.systemsVisited?.sol === true, 'masterAtlas systemsVisited preserved');
+assert(saveRoot.masterAtlas.totalDiscoveries === 3, 'masterAtlas totalDiscoveries preserved');
+
+console.log('Universe progress slots round-trip (missions, planets, locations, routes)');
+const richUniverse = createEmptyUniverse('Universe 1');
+richUniverse.systems = { sol: { explored: true, scanned: false, note: '' } };
+richUniverse.missions = { one_small_step: { status: 'active', note: '', completedAt: '' } };
+richUniverse.planets = { jemison: { status: 'visited', note: '', survey: { floraFound: 1, floraTotal: 3, faunaFound: 0, faunaTotal: 0, resourcesFound: 0, resourcesTotal: 0, traitsFound: 0, traitsTotal: 0 }, plannedOutpost: true, outpostName: 'Base', priority: 'high', notes: '' } };
+richUniverse.locations = { [DISCOVERY_JOURNAL_KEY]: { entries: [{ id: 'd2', title: 'Found vendor' }] } };
+richUniverse.routes = { r2: { id: 'r2', name: 'Farm run', stops: ['sol'], pathSystemIds: ['sol', 'alpha_centauri'] } };
+saveRoot = { version: 2, activeUniverseId: 'universe_2', universes: Object.fromEntries(UNIVERSE_IDS.map((id, i) => [id, createEmptyUniverse(`Universe ${i + 1}`)])), masterAtlas: getDefaultMasterAtlas() };
+migrateSaveToUniverseFormat({ version: 2, activeUniverseId: 'universe_2', universes: { universe_2: richUniverse }, masterAtlas: getDefaultMasterAtlas() });
+assert(saveRoot.activeUniverseId === 'universe_2', 'activeUniverseId preserved');
+assert(saveRoot.universes.universe_2.missions.one_small_step?.status === 'active', 'missions persist');
+assert(saveRoot.universes.universe_2.planets.jemison?.plannedOutpost === true, 'outpost survey/planner persist');
+assert(saveRoot.universes.universe_2.locations[DISCOVERY_JOURNAL_KEY]?.entries?.length === 1, 'discoveries persist');
+assert(saveRoot.universes.universe_2.routes.r2?.name === 'Farm run', 'routes persist');
+
 console.log(`\nMigration tests: ${ok} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

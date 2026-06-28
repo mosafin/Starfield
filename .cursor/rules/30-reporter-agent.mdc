@@ -24,6 +24,15 @@ After every significant change, create or update:
 
 **Docs layout:** `docs/release-notes/` holds dated feature reports; `docs/known-issues.md` is the living list of limitations.
 
+### Release note filenames and dates
+
+- Use **today's actual date** (when the report is written/shipped) for the `YYYY-MM-DD` prefix — never reuse a stale date from an earlier session.
+- Before creating a file, confirm the current date (e.g. system date / user context).
+- Format: `docs/release-notes/YYYY-MM-DD-phase-N-short-name.md` or `YYYY-MM-DD-phases-X-Y-release-summary.md`
+- **Rolling release summaries:** when updating a multi-phase summary, rename the file so **Y matches the latest shipped phase** (e.g. after Phase 32, use `…-phases-22-32-release-summary.md`, not `…-phases-22-31-…`). Update the title, phase table, and QA totals inside the file to match.
+- The `Date:` line inside the report must match the filename prefix.
+- Do **not** rename older historical release notes unless the user asks; only new or just-completed reports get today's date.
+
 ---
 
 ## Report Format

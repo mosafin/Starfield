@@ -20,15 +20,18 @@ if (!/getSavePayload[\s\S]{0,300}knowledge/.test(script)) {
 
 const knowledgeBlock = script.match(/const knowledgeData = \[([\s\S]*?)\];/);
 const knowledgeCount = knowledgeBlock ? (knowledgeBlock[1].match(/id: '/g) || []).length : 0;
-if (knowledgeCount === 8) pass('knowledgeData has 8 starter entries');
-else fail('High', `Expected 8 knowledge entries, got ${knowledgeCount}`);
+if (knowledgeCount >= 40) pass(`knowledgeData has ${knowledgeCount} entries (Pack 2+)`);
+else fail('High', `Expected at least 40 knowledge entries, got ${knowledgeCount}`);
 
 if (script.includes('routes: {}') && script.includes('function mergeSavedRoutes')) {
   pass('Route save slot (gameProgress.routes) with merge helper');
 } else fail('High', 'Missing routes save integration');
 
-if ((html.match(/<button[^>]*id="view\w+Btn"[^>]*class="view-tab/g) || []).length === 10) pass('10 view tabs present');
-else fail('High', `Expected 10 view tabs, got ${(html.match(/<button[^>]*id="view\w+Btn"[^>]*class="view-tab/g) || []).length}`);
+const viewTabButtons = (html.match(/<button[^>]*id="view(?!TabsMore)\w+Btn"[^>]*class="view-tab/g) || []).length;
+if (viewTabButtons === 13) pass('13 view tabs present (4 primary + 9 in More menu)');
+else fail('High', `Expected 13 view tabs, got ${viewTabButtons}`);
+if (html.includes('id="viewTabsMoreBtn"')) pass('View More menu button present');
+else fail('High', 'Missing viewTabsMoreBtn');
 
 ['command', 'routes', 'knowledge'].forEach((view) => {
   if (script.includes(`view === '${view}'`)) pass(`setView handles '${view}'`);

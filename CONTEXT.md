@@ -16,8 +16,9 @@ Single-file app: `Starmap - Fav v3 .html`. All CSS and JS inline. No build step.
   #missionProgressSummary — stats, category %, bucket icons, legend
   #missionFilters         — search / group / expansion / status filters
   #missionsList           — mission cards
-#viewSwitcher             — Star Systems / Missions / … / Command Center tabs
-#mapControls              — zoom, save, folder controls
+#viewSwitcher             — primary tabs + More ▾ (Resources, Outposts, … in dropdown)
+#viewTabsMoreMenu          — secondary view dropdown (Phase 26)
+#mapControls              — zoom + save More ▾ (top-right)
 #infoPanel                — progress counters + Reset Exploration
 #noteModalOverlay         — shared note modal for systems
 ```
@@ -49,6 +50,7 @@ Built once at load by `buildCatalogueIndexes()` after `starSystemsData` is defin
 
 | Index | Lookup |
 |-------|--------|
+| `systemById[id]` | Single star system entry (Phase 26) |
 | `planetById[id]` | Single planet entry |
 | `locationById[id]` | Single location entry |
 | `planetsBySystemId[systemId]` | Planet array for system |
@@ -62,10 +64,10 @@ Built once at load by `buildCatalogueIndexes()` after `starSystemsData` is defin
 
 Panel helpers (`getPlanetsForSystem`, `getLocationsForSystem`, etc.) read indexes — no per-render `filter()` scans.
 
-Dev-only validation: `validatePlanetData()`, `validateLocationData()`, `logCatalogueHealthReport()`. Active on `localhost`, `127.0.0.1`, `file://`, or `?catalogueDev=1`. Disabled with `?catalogueDev=0`. Phase 12: 149 planets, 37 locations, 0 validation issues.
+Dev-only validation: `validateAtlas()`, `AtlasManager`, `getAtlasCompletenessReport()`. Active on `localhost`, `127.0.0.1`, `file://`, or `?catalogueDev=1`. Phase 34: Mission Atlas 2.0 metadata on **122** missions; **558** planets, **63** locations.
 
 ### `missionData[]`
-Read-only catalogue (**122 entries**). Shape:
+Read-only catalogue (**122 entries**, Mission Atlas 2.0). Shape:
 ```js
 {
   id: string,
@@ -74,17 +76,30 @@ Read-only catalogue (**122 entries**). Shape:
   expansion: string,
   systemId: string|null,
   locationName: string,
-  // optional — Phase 18 quest progression (set at bootstrap via applyMissionChainMetadata)
+  // Phase 18 quest progression (bootstrap via applyMissionChainMetadata)
   previousMissionId: string|null,
   nextMissionId: string|null,
-  faction: string|null,      // UC Vanguard, Freestar Rangers, etc.
-  campaign: string|null      // Main Quest, faction name, Shattered Space, Terran Armada
+  faction: string|null,
+  campaign: string|null,
+  // Phase 34 Mission Atlas — all optional; null / [] where unknown
+  category: 'Main Story'|'Faction'|'Side Quest'|'Activity'|'Miscellaneous'|'DLC'|null,
+  startsAtLocationId: string|null,
+  primarySystemId: string|null,
+  primaryPlanetId: string|null,
+  primaryLocationId: string|null,
+  recommendedLevel: number|null,
+  estimatedLength: string|null,
+  prerequisites: string[],
+  followUpMissions: string[],
+  rewards: string[],
+  choices: string[],
+  notes: string
 }
 ```
-Chain order is defined in `MISSION_CAMPAIGN_CHAINS`; side quests and activities have no chain links.
+Chain order is defined in `MISSION_CAMPAIGN_CHAINS`; `enrichMissionAtlasMetadata()` derives category, location anchors, prerequisites, and follow-ups from validated catalogue links (no guessed rewards/choices).
 
 ### `planetData[]`
-Read-only catalogue (**149 entries**, Phase 12 Expansion Pack 2). Shape:
+Read-only catalogue (**558 entries**, Phase 32 Core Atlas). Shape:
 ```js
 {
   id: string,
@@ -135,13 +150,14 @@ Discovery journal at `gameProgress.locations.__discoveryJournal__`:
 Written only when the player saves a discovery. Location progress helpers skip `__discoveryJournal__`.
 
 ### `locationData[]`
-Read-only POI catalogue (**37 entries**, Phase 12 Expansion Pack 2). Shape:
+Read-only POI catalogue (**63 entries**, Phase 33 Location Pack 1). Shape:
 ```js
 {
   id: string,
   name: string,
-  type: 'city' | 'settlement' | 'starstation' | 'staryard' | 'outpost'
-       | 'landmark' | 'temple' | 'vendor' | 'mission_location' | 'other',
+  type: 'city' | 'district' | 'settlement' | 'starstation' | 'staryard' | 'outpost'
+       | 'mine' | 'lab' | 'military' | 'hospital' | 'factory'
+       | 'landmark' | 'temple' | 'vendor' | 'mission_location' | 'quest' | 'other',
   systemId: string|null,
   planetId: string|null,
   relatedMissionIds: string[],
@@ -294,8 +310,11 @@ Only missions the player has edited are stored. Shape per mission id:
 | `#topUiChrome` | Fixed header grid: tabs/universe · search · zoom/save |
 | `syncTopUiLayout()` / `initTopUiLayout()` | Measure header height → set `--secondary-panel-top` for panels below |
 | `syncMapFilterBarLayout()` | Offset `#routeFilterBar` below `#resourceFilterBar` when both visible |
+| `initViewTabsMoreMenu()` / `syncViewSwitcherUi()` | Secondary views in **More ▾** dropdown; label reflects active secondary view |
 | `closeMapControlsMoreMenu()` / `initMapControlsMoreMenu()` | Compact save/export **More ▾** dropdown |
 | `getUILayoutReport()` | Dev-only console audit of fixed UI overlap (localhost / `?uiDev=1`) |
+| `getAtlasDataReadinessReport()` | Dev-only catalogue expansion readiness audit (counts, orphans, duplicates) |
+| `invalidateCommandCenterCache()` | Clears cached Command Center recommendations on save |
 | **Faction overlay (Phase 20–21)** | |
 | `clearFactionOverlay()` | Turn off all faction layer toggles + refresh map fade |
 | `highlightFactionTerritory(faction)` | Single-select faction layer + summary refresh |
@@ -309,6 +328,21 @@ Only missions the player has edited are stored. Shape per mission id:
 | `getSystemMissionProgressText(id)` | `Mission count: X / Y completed` |
 | `saveSystemNote(id, note)` | Blur-only save; skips empty no-op |
 | `initSystemDetailsPanel()` | Checkbox + note blur handlers |
+| **Compare & Planning (Phase 28)** | |
+| `compareModeState` | Runtime `{ systemIds[], panelOpen }` — max 4 unique systems; **not saved** |
+| `addSystemToCompare(id)` / `removeSystemFromCompare(id)` / `clearCompareList()` | Manage comparison list with duplicate + max guards |
+| `getSystemCompareSnapshot(id)` | Side-by-side stats from existing indexes + player progress |
+| `analyzeCompareResources(systemIds)` | Common + per-system unique resource tags |
+| `computeSystemPlanningScores(id)` | Exploration / Resources / Knowledge / Missions / Overall (0–100 heuristics) |
+| `renderComparePanel()` / `initCompareMode()` | `#compareModePanel` + `#compareTray`; updates on `invalidateCommandCenterCache()` |
+| `createAddToCompareButton(id)` | Shared Compare control for details, Resources, Route Planner, Knowledge Atlas |
+| **Galaxy Timeline (Phase 29)** | |
+| `buildTimelineEventsFromSave()` / `getTimelineEventsCached()` | Generate + cache timeline from existing progress |
+| `invalidateTimelineCache()` | Clears cache on save; refreshes panel if visible |
+| `renderTimelinePanel()` / `initTimelineFilters()` | `#timelinePanel` UI — filters, groups, milestones |
+| `computeTimelineMilestones()` | Achievement chips from live counts |
+| `openMissionFromTimeline(id)` | Jump to Missions tab + scroll to mission card |
+| Timestamp hooks | `startedAt`, `exploredAt`, `plannedAt`, `surveyCompletedAt`, `milestones.enteredAt` |
 | **Mission badges (2C)** | |
 | `getSystemMissionBadgeIndicator(id)` | ● / ⚠ / ✓ / null from linked mission states |
 | `applySystemMissionBadge(el, id)` | Update `.system-mission-badge` DOM |
@@ -423,7 +457,28 @@ CSS variables on `:root`:
 - System details: `z-index: 115`, sticky header, `max-height` uses `--bottom-ui-reserve`
 - `ResizeObserver` on header + info panel recalculates offsets on wrap/resize
 - Search centre column hidden on non–Star Systems views
+- View switcher (Phase 26): four primary tabs + **More ▾** for Resources, Outposts, Discoveries, Universes, Route Planner, Knowledge Atlas, Timeline
 - Dev: `getUILayoutReport()` on `window` when `UI_DEV_MODE` (localhost, file, or `?uiDev=1`)
+- Dev: `getAtlasDataReadinessReport()` when `CATALOGUE_DEV_MODE` or `UI_DEV_MODE`
+- Compare panel (Phase 28): `#compareModePanel` bottom-left above info panel; `#compareTray` toggle; `--bottom-ui-reserve` includes tray/panel height
+
+---
+
+## Atlas Polish (Phase 26)
+
+### View navigation
+- Primary: Star Systems · Missions · Galaxy Progress · Command Center
+- Secondary (More menu): resources · outposts · discoveries · universes · routes · knowledge
+- `SECONDARY_VIEW_IDS` / `VIEW_TAB_LABELS` — More button shows active secondary label
+
+### Performance
+- `systemById` — built in `buildCatalogueIndexes()`; used by `applyMapPointVisualState()`
+- Command Center — `getCommandCenterRecommendations()` cached until `invalidateCommandCenterCache()` (called from `saveSystemStates()`)
+- Route Planner — `recomputeRoutePlannerPath()` skips work when waypoint/mode/options unchanged
+- Knowledge Atlas — `getFilteredKnowledgeEntries()` memoized per filter key
+
+### Catalogue readiness
+- `getAtlasDataReadinessReport()` — missions/planets/locations/knowledge validation, orphan refs, duplicate ids, `knowledgeMissingMapRef`, `readyForExpansion` flag
 
 ---
 
@@ -550,16 +605,197 @@ CSS variables on `:root`:
 
 ---
 
-## Knowledge Atlas Framework (Phase 25)
+## Knowledge Atlas Framework (Phase 25) + Pack 1 (Phase 27) + Pack 2 (Phase 30)
 
 - Tab: **Knowledge Atlas** — `#knowledgeAtlasPanel` / `#knowledgeList` / `#viewKnowledgeBtn`; view id `knowledge`
-- Read-only catalogue: `knowledgeData[]` — `{ id, type, title, systemId, planetId, locationId, description, tags }`
-- Types: `vendor`, `companion`, `temple`, `power`, `magazine`, `player_home`, `unique_weapon`, `unique_armor`, `ship_vendor`, `trainer`
+- Read-only catalogue: `knowledgeData[]` — **45 entries** (22 Pack 1 + 23 Pack 2)
+- Entry shape: `{ id, type, title, systemId, planetId, locationId, description, tags, faction?, relatedEntryIds?, relatedMissionIds? }`
+- Pack 1 coverage: vendors, companions, homes, city-level magazine indexes, power + temple frameworks
+- Pack 2 coverage: ship vendors/manufacturers/services, stations, medical, trainers, district magazines, unique weapons/armour, landmarks, crew hubs
+- Types: `vendor`, `ship_vendor`, `ship_manufacturer`, `ship_services`, `station`, `landmark`, `medical`, `crew`, `trainer`, `magazine`, `unique_weapon`, `unique_armour`, `companion`, `player_home`, `power`, `temple`
+- Neon-linked entries use `planetId: 'volii_alpha'` to match `locationData` (`neon_city` on Volii Alpha)
+- Null links (by design): Barrett/Vasco `locationId`, Dream Home `locationId`, power/temple framework `systemId`
 - Indexes in `buildCatalogueIndexes()`: `knowledgeById`, `knowledgeBySystemId`, `knowledgeByPlanetId`, `knowledgeByLocationId`, `knowledgeByType`
-- Filters: `knowledgeFilterState` — search, category (`KNOWLEDGE_FILTER_CATEGORIES`), type
+- Filters: `knowledgeFilterState` — search, category (`KNOWLEDGE_FILTER_CATEGORIES`), type; `clearKnowledgeFilters()`
+- Detail panel: `#knowledgeDetailPanel` — cross-links to mission/system/planet/location/faction; related entries via `getRelatedKnowledgeEntries()`
+- Search: `getKnowledgeSearchHaystack()` — partial match on title, tags, category, system, planet, location names
 - System panel: `#systemDetailsKnowledge` count + `#systemDetailsKnowledgeList`
 - Location drilldown: `appendLocationKnowledgeBlock()` in `lazyRenderLocationMissions()`
+- Validation: `validateAtlas()` + legacy `getAtlasDataReadinessReport()` — 0 duplicate/orphan refs, valid related IDs
 - **Not saved** — catalogue-only; no save envelope changes
+
+See also **Knowledge Atlas Expansion Pack 2 (Phase 30)** section below for detail-view API.
+
+---
+
+## Compare & Planning Mode (Phase 28)
+
+- Runtime-only comparison list — up to **4** unique star systems; no save migration
+- Entry points: **Compare** on system details header; **Compare** on Resource Atlas system groups, Route Planner jump path, Knowledge Atlas cards (when `systemId` set)
+- UI: `#compareTray` (count badge) + `#compareModePanel` — side-by-side columns with stats, mission buckets, planning scores, resource common/unique breakdown (when ≥2 systems)
+- Data sources: `planetsBySystemId`, `locationsBySystemId`, `resourcesByPlanet`, `knowledgeBySystemId`, `getLinkedMissionsForSystem()`, `systemStates`, `gameProgress` planet/outpost state — no duplicated catalogue arrays
+- Planning score (`computeSystemPlanningScores()`):
+  - **Exploration** — mean of remaining planet %, remaining location %, survey headroom; +10 if not explored, +5 if not scanned (cap 100)
+  - **Resources** — `min(100, distinct resource count × 14)`
+  - **Knowledge** — `min(100, knowledge entry count × 18)`
+  - **Missions** — remaining linked mission %; +15 if any active mission (cap 100)
+  - **Overall** — rounded mean of the four subscores (higher = stronger planning candidate)
+- Quick actions per column: Show on Map, Open Details, Remove; header **Clear All**
+- Refreshes when progress saves via `invalidateCommandCenterCache()` → `refreshComparePanelIfOpen()`
+
+---
+
+## Interactive Galaxy Timeline (Phase 29)
+
+- View: **More ▾ → Timeline** — `#timelinePanel` / `#viewTimelineBtn`; view id `timeline`
+- Events generated at runtime from `gameProgress` + catalogues — **not** a separate saved event array
+- Event types: `mission_completed`, `mission_started`, `planet_survey_completed`, `location_completed`, `discovery_added`, `outpost_planned`, `system_first_visited`, `system_fully_completed`, `knowledge_unlocked`, `universe_entered`
+- Structure: `{ id, timestamp, type, systemId, planetId, locationId, title, description, missionId? }`
+- Groups: Today · Yesterday · This Week · Earlier (collapsible via `timelineUiState.collapsedGroups`)
+- Filters: `timelineFilterState.categories` — missions, discoveries, exploration, outposts, knowledge, survey, universes
+- Cache: `getTimelineEventsCached()` — key `${activeUniverseId}:${timelineDataVersion}`; invalidated in `invalidateTimelineCache()` on save
+- Milestones: `computeTimelineMilestones()` — first survey, 10 systems, 25 missions, 100 discoveries, 50 locations, first outpost
+- Optional nested timestamp fields (no new top-level save keys): mission `startedAt`, system `exploredAt`, planet `plannedAt` / `surveyCompletedAt`, milestones `enteredAt`
+- Actions: Show on Map, Open Details, Open Mission (`openMissionFromTimeline`)
+
+---
+
+## Knowledge Atlas Expansion Pack 2 (Phase 30)
+
+- Catalogue: **45 entries** (22 Pack 1 + 23 Pack 2 validated rows)
+- New types: `ship_vendor`, `ship_manufacturer`, `ship_services`, `station`, `landmark`, `medical`, `crew`, `unique_armour`
+- Optional entry fields: `relatedEntryIds[]`, `relatedMissionIds[]`, `faction`
+- Detail panel: `#knowledgeDetailPanel` — `openKnowledgeDetailPanel()`, `renderKnowledgeDetailPanel()`, `closeKnowledgeDetailPanel()`
+- Related entries: `getRelatedKnowledgeEntries()` — explicit IDs + same `locationId` + shared tags
+- Mission links: `getKnowledgeLinkedMissions()` — entry + location mission IDs
+- Search haystack: `getKnowledgeSearchHaystack()` — title, description, type, faction, tags, system/planet/location names
+- Validation: `validateKnowledgeData()` extended for related IDs; `getAtlasDataReadinessReport()` unchanged contract
+- Indexes unchanged: `knowledgeBySystemId`, `knowledgeByLocationId`, `knowledgeByPlanetId`
+- No save keys — catalogue-only
+
+---
+
+## Atlas Data Manager & Expansion Framework (Phase 31)
+
+- **Registry:** `atlasRegistry` — metadata for systems, planets, locations, missions, resources (derived), knowledge
+- **Pack slots:** `ATLAS_PACK_MANIFEST` — `core` + `knowledge` (always loaded), `shattered-space` (DLC), `community` (reserved); see Phase 38 for `loadAtlasPack()` implementation
+- **Validation:** `validateAtlas()` — unified duplicate/orphan/category/faction/related-link checks; wraps per-catalogue validators
+- **Statistics:** `getAtlasStatistics()` — counts, averages, coverage %, `missionAtlasCoverage`, `coverageByCategory`, `locationsPerSystem`
+- **Expansion:** `getExpansionReadiness()` — gap lists including `missionsMissingLocations`, `missionsMissingRewards`, mission/location/system gaps
+- **Indexes:** `atlasIndexes` object + **single** `rebuildAtlasIndexes()`; includes `missionsBySystemId`, `missionsByPrimaryLocationId`, `locationsByMissionId`, `knowledgeByMissionId`
+- **Dev console:** `AtlasManager` on `window` in catalogue dev mode — validate, stats, expansion, rebuild, benchmarks
+- **Performance:** `measureAtlasPerformance()` — index rebuild, validation, knowledge search, route segment, timeline (dev log only)
+- **Save:** unchanged — catalogue-only infrastructure
+
+---
+
+## Core Atlas Planet & Location Catalogue (Phase 32–33)
+
+- **Planets:** **558** entries — all **120** systems have at least one catalogue body; numbered stubs use `level: null`, `resources: []`
+- **Locations:** **63** validated POIs (Phase 33) — cities, districts, mines, labs, military sites, hospitals, factories, quest sites, temples, starstations (no guessed shop interiors)
+- **Mission-validated bodies:** Anselon, Altair II, Andromas IV-a, Procyon A I, Tau Ceti III, etc.
+- **Cross-links:** Barrett/Vasco → `argos_extractors_outpost`; medical/trainer knowledge → `neon_medical_center`, `freestar_rangers_hq`, `mercury_tower`
+- **Coverage metrics:** `getAtlasStatistics()` — `namedLocations`, `locationsPerSystem`, `coverageByCategory`, `vanillaAtlasProgress`
+- **Expansion readiness:** `getExpansionReadiness()` — systems with zero/one location, largest location gaps
+- **Dev completeness:** `AtlasManager.getAtlasCompletenessReport()` — complete (planets+POIs) vs partial (planets only) vs empty
+- **Save:** unchanged — catalogue-only
+
+---
+
+## Mission Atlas 2.0 (Phase 34)
+
+- **Metadata enrichment:** `enrichMissionAtlasMetadata()` after chain bootstrap — category, faction, primary/start locations from validated anchors + `locationData` cross-links, prerequisites/follow-ups from chains
+- **Detail view:** `buildMissionAtlasDetailHtml()` on each mission card — scrollable atlas reference block
+- **Search:** `getMissionSearchHaystack()` — title, faction, rewards, locations, systems (indexed lookups at render time)
+- **Filters:** category, faction, recommended level, status, completed/active/not started, has choices/rewards
+- **Cross-links:** Timeline (`openTimelineForMission`), Knowledge (`openKnowledgeForMission`), Show on Map
+- **Coverage:** `getAtlasStatistics().missionAtlasCoverage` — metadata, location, reward, prerequisite, follow-up %
+- **Expansion gaps:** `getExpansionReadiness()` — missions missing locations/rewards/prerequisites/follow-ups
+- **Validation:** orphan checks for `primaryLocationId`, `startsAtLocationId`, prerequisite/follow-up IDs
+- **Save:** unchanged — catalogue metadata only; progress in `gameProgress.missions`
+
+---
+
+## Galactic Search Engine (Phase 35)
+
+- **UI:** top-centre **Search the atlas…** on all views; dropdown with suggestions, recent searches (max 10, `localStorage` only), grouped results
+- **Index:** `buildSearchIndex()` after `rebuildAtlasIndexes()` — systems, planets, locations, missions, knowledge, resources from atlas indexes
+- **Dynamic:** discoveries, saved routes, timeline events, planned outposts merged at search time
+- **Search:** `searchGalactic(query)` — weighted scoring (exact title, type boost, haystack, timeline recency)
+- **Suggestions:** `getGalacticSearchSuggestions()` — alphabetical prefix match on catalogue titles
+- **Actions:** Show on Map, Open Details, Open Mission, Open Knowledge, Compare
+- **Map:** on Star Systems view, systems linked to any search hit glow; others fade
+- **Dev:** `AtlasManager.buildSearchIndex()`, `.searchGalactic()`, perf fields in `.measureAtlasPerformance()`
+- **Save:** unchanged — recent search history not exported
+
+**Release summary:** `docs/release-notes/2026-06-28-phases-22-37-release-summary.md`
+
+---
+
+## Fleet & Crew Manager (Phase 36)
+
+- **Save (v2 extension):** `gameProgress.fleet.ships`, `.crew.members`, `.homes.owned`, `.homes.currentHomeId` — migrated on load via `ensureFleetProgressStructure()`
+- **Indexes:** `rebuildFleetIndexes()` — shipsById, shipsBySystemId, crewById, crewByShipId, homesById
+- **UI:** Fleet Manager panel — ships, crew, homes, assignments; add/edit/remove with inline detail cards
+- **Knowledge:** companion crew auto-links to `knowledgeData` companion entries; recruitment location from Knowledge context
+- **Search:** Galactic Search types `ship`, `crew`, `home`, `assignment`
+- **Timeline:** `ship_added`, `crew_assigned`, `crew_reassigned`, `home_purchased` (Fleet filter)
+- **Stats:** `getAtlasStatistics().playerFleet` — ships, crew, homes, assignments counts
+- **Dev:** `AtlasManager.rebuildFleetIndexes()`, `.getFleetStatistics()`
+
+---
+
+## Atlas Insights & Intelligence (Phase 37)
+
+- **UI:** **More ▾ → Insights** — scrollable analytics panel (not a permanent top tab)
+- **Engines:** `computeAtlasInsights()` builds forecasts, heatmap rankings, and recommendations from save + catalogue only
+- **Cache:** `getAtlasInsightsCached()` keyed by universe, save version, timeline version, catalogue version — invalidated on `invalidateCommandCenterCache()` and `rebuildAtlasIndexes()`
+- **Knowledge seen heuristic:** location visited/completed, planet visited/surveyed/completed, or linked system explored
+- **Stats extension:** `getAtlasStatistics()` adds `completionForecast`, `explorationRanking`, `knowledgeCoverage`, `playerInsights`
+- **Dev:** `AtlasManager.getAtlasInsightsCached()`, `.computeAtlasInsights()`; `measureAtlasPerformance().atlasInsightsMs`
+- **Save:** unchanged — insights are generated, not persisted; no migration
+
+**Release summary:** `docs/release-notes/2026-06-28-phases-22-40-release-summary.md`
+
+---
+
+## Version 1.0.0 Release Candidate (Phase 40)
+
+- **App version:** `ATLAS_APP_VERSION = '1.0.0'` — `AtlasManager.appVersion`, `getAtlasHealthReport().appVersion`
+- **Regression:** `node scripts/run-full-regression.js` (all `qa-*.js` scripts)
+- **Save compatibility:** `qa-save-compatibility-check.js` + `qa-migration-check.js`
+- **Performance baseline:** `node scripts/qa-performance-baseline.js` → `docs/performance-baseline-v1.0.0.json`
+- **Release package:** `release/starfield-atlas-v1.0.0/` (VERSION.json, LICENSE, CREDITS, icon)
+- **Docs freeze:** Installation, Backup & Restore, Browser Compatibility, Future Roadmap, RC release notes
+- **Accessibility:** `prefers-reduced-motion` CSS added
+- **Save:** unchanged — v2 only; no catalogue expansion; no coordinate changes
+
+---
+
+## Atlas Experience & Polish (Phase 39)
+
+- **Keyboard shortcuts** — `initAtlasKeyboardShortcuts()`: Ctrl+K (galactic search), Esc (`closeAllAtlasOverlays()`), ↑/↓ (`moveGalacticSearchHighlight`), Enter (`activateGalacticSearchHighlightedItem`), F (focus selected system), ? (`#shortcutsHelpOverlay`)
+- **Accessibility** — `:focus-visible` outlines; ARIA on search input, results, and help dialog; unified `.atlas-empty-state`
+- **Responsive CSS** — breakpoints 1600 / 1440 / 1366 / 1280 px; no overlapping top-bar controls or clipped dialogs
+- **Animation** — subtle transitions on panels, compare cards, timeline expand (no heavy motion)
+- **Error handling** — `warnMissingAtlasReference()`; user messages in galactic detail openers and search actions
+- **Health report** — `getAtlasHealthReport()` → validation, pack status, search index, catalogue totals, cache versions, `measureAtlasPerformance()` timings, missing refs, warnings, `atlasStartupMs`
+- **AtlasManager** — exposes `.getAtlasHealthReport()`; dev console `window.getAtlasHealthReport` when `CATALOGUE_DEV_MODE`
+- **Save:** unchanged — polish only; no migration
+
+---
+
+## Shattered Space Integration Framework (Phase 38)
+
+- **Pack:** `atlasPack_shatteredSpace` — validated DLC catalogue only (Lantana bodies, SS missions/locations); metadata `id: shattered-space`, `requiredAtlasVersion: 2`
+- **Bootstrap:** core arrays strip pack entries at init; `bootstrapAtlasPacks()` auto-loads `shattered-space` before index build
+- **Loading:** `loadAtlasPack(packId)` — merge catalogues, validate, single `finalizeCataloguePackChange()` rebuild (indexes + search)
+- **Unload:** `unloadAtlasPack(packId)` — dev mode only (`CATALOGUE_DEV_MODE`); top-right **More ▾ → Loaded Packs**
+- **Validation:** `validateAtlasPackContent()`, `validateRegisteredAtlasPacks()` — duplicates, orphans, cross-pack refs (e.g. missions → core `lantana`)
+- **Search / Mission / Knowledge / Timeline:** automatic via merged arrays — no DLC-specific UI
+- **Stats:** `getAtlasStatistics().loadedPacks`, `.dlc` — per-pack and aggregate DLC counts
+- **Community:** `registerAtlasPack()` + `pendingAtlasPacks` for future packs
+- **Save:** unchanged — catalogue-only; no migration
 
 ---
 
@@ -588,8 +824,8 @@ Updated by `syncSystemMissionBadge()` from `saveMissionState()` and on `renderSt
 ## Known Constraints
 
 - `renderStarmap()` uses `innerHTML = ''` — full rebind; search/layer classes re-applied after
-- `planetData` is read-only catalogue (**149** entries); progress lives in `gameProgress.planets` via `savePlanetState()` only
-- `locationData` is read-only catalogue (**37** entries); progress lives in `gameProgress.locations` via `saveLocationState()` only
+- `planetData` is read-only catalogue (**558** entries); progress lives in `gameProgress.planets` via `savePlanetState()` only
+- `locationData` is read-only catalogue (**63** entries); progress lives in `gameProgress.locations` via `saveLocationState()` only
 - Many systems still have partial planet/location coverage; Pack 1 + Pack 2 prioritised 25 gameplay systems
 - Catalogue validation runs in dev mode only; use `?catalogueDev=1` on any host to force console report
 - Map layer toggles are display-only and not persisted

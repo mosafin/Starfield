@@ -4,6 +4,8 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 
 **Open the app:** double-click `Starmap - Fav v3 .html` in Chrome or Edge (recommended for folder saves).
 
+**Version 1.0.0 RC** — production-ready; see `CHANGELOG.md`, `docs/release-notes/2026-06-28-version-1.0.0-rc.md`, and `docs/Installation-Guide.md`.
+
 ---
 
 ## Features
@@ -11,7 +13,7 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 ### Star Systems view (default)
 - Pan and zoom across all **120** star systems (drag works at every zoom level)
 - Subtle spacing on crowded clusters so names and icons are easier to click
-- **Search systems…** — live name search; matching stars glow, others fade; **Enter** jumps to the first match
+- **Search the atlas…** — unified galactic search from any view; grouped results across systems, planets, locations, missions, knowledge, resources, discoveries, routes, timeline, and outposts; matching stars glow on the map when on Star Systems view
 - **Map layers** — collapsible panel to highlight systems by difficulty, missions, locations, faction territories, survey, resources, outposts, notes, and progress; runtime only, not saved
 - **Faction territories** — catalogue-based UC / Freestar / Crimson Fleet / Va'ruun / Independent / Unknown overlays with summary panel
 - **Mission badges** beside linked systems: ● missions available · ⚠ active mission · ✓ all linked missions done
@@ -22,10 +24,60 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 - Progress bar: total / explored / scanned counts
 - **Reset Exploration** clears all system progress (missions are kept)
 
-### Missions view
-- Switch via **Star Systems** / **Missions** / **Galaxy Progress** / **Resources** / **Outposts** / **Discoveries** / **Universes** / **Command Center** / **Route Planner** / **Knowledge Atlas** tabs (top-left)
+### Galactic Search (all views)
+- **Search the atlas…** in the top-centre bar — one search across every catalogue
+- **Autocomplete** — alphabetical prefix suggestions while typing
+- **Recent searches** — last 10 terms stored in the browser only (not in save files)
+- **Grouped results** — Systems · Planets · Locations · Missions · Knowledge · Resources · Discoveries · Routes · Timeline · Outposts
+- **Quick actions** on each hit — Show on Map, Open Details, Open Mission, Open Knowledge, Compare
+- On Star Systems view, matching systems glow on the map; unrelated stars fade
+- **Enter** opens the top-ranked result (or the highlighted row when using arrow keys)
+
+### Fleet Manager view
+- Open from **More ▾ → Fleet Manager**
+- Track **ships** (name, class, manufacturer, home port, current system, cargo role, notes)
+- Track **crew** — companions, generic crew, special crew — with assignments, ship, system, companion status
+- Track **homes** — Apartment, Penthouse, Dream Home, Sleepcrate, Outpost Housing — with **Current Home** flag
+- **Assignments** section summarizes crew → ship → system links
+- **Show on Map**, **Open Knowledge** (companions), inline editing on each card
+- Saved per universe in `fleet`, `crew`, and `homes` (automatic migration for old saves)
+- Appears in **Galactic Search** and **Timeline** (Ship Added, Crew Assigned/Reassigned, Home Purchased)
+
+### Atlas Insights view
+- Open from **More ▾ → Insights**
+- **Exploration Statistics** — systems explored/completed, planets surveyed, locations visited, knowledge seen, resources collected, missions completed, faction completion, timeline events, fleet counts
+- **Completion Forecast** — estimated % for Main Story, faction storylines, exploration, survey, knowledge, and overall atlas completion (from validated save + catalogue data only)
+- **Exploration Heatmap** — Top 10 rankings: most visited, least explored, highest survey progress, most missions remaining, most knowledge remaining
+- **Recommendations** — next system, mission, survey target, resource route, and knowledge location — each with a plain-language reason
+- **Fleet, Resource, and Timeline Insights** — most-used ship, crew gaps, resource frequency, missing crafting chains, discovery gaps, and activity peaks
+- **Generated at view time** — not saved separately; cache refreshes when save or catalogue indexes change
+
+### Modular expansion packs (Phase 38)
+- **Shattered Space** loads as the first official DLC pack via the Atlas Registry (`atlasPack_shatteredSpace`)
+- Pack includes validated Lantana planets, Shattered Space missions, and linked locations (Dazra, Hamadi Station, Tomb of the Fang)
+- **Galactic Search**, Mission Atlas, Knowledge Atlas, and Timeline include DLC entries automatically when the pack is loaded
+- Core vanilla star map coordinates unchanged — Lantana remains on the base map; DLC adds catalogue depth only
+- **Developer:** top-right **More ▾ → Loaded Packs** shows Core · Knowledge · Shattered Space · Community (dev/catalogue mode only) with Load/Unload toggles
+- `AtlasManager.loadAtlasPack()`, `.unloadAtlasPack()`, `.getAtlasPackStatusList()` — `getAtlasStatistics().loadedPacks` and `.dlc` counts
+
+### Experience polish (Phase 39)
+- **Keyboard shortcuts** — Ctrl+K (search), Esc (close overlays), ↑/↓ + Enter (search navigation), F (focus system), ? (help)
+- **Accessibility** — visible focus rings, ARIA labels on search and help, consistent empty states across panels
+- **Responsive layout** — tuned for 1920 down to 1280 px widths; panels and dialogs avoid overlap and clipping
+- **Subtle transitions** — panel open/close, compare cards, timeline expand
+- **Error handling** — clear messages for empty searches, missing map references, and broken catalogue links
+- **Health report** — `AtlasManager.getAtlasHealthReport()` for validation, packs, search index, cache, timings, and warnings (dev: `window.getAtlasHealthReport()`)
+
+### Missions view (Mission Atlas 2.0)
+- Switch via **Star Systems** · **Missions** · **Galaxy Progress** · **Command Center** · **More ▾** (top-left)
+- **Mission Atlas detail** on each card — category, faction, start/primary location, recommended level, prerequisites, rewards, choices, follow-ups (catalogue-only; empty fields show “Not catalogued”)
+- **Search** — title, faction, reward text, location, system
+- **Filters** — category, group, faction, expansion, status, recommended level, completed/active/not started, has choices, has rewards
+- **Cross-links** — Show on Map, Timeline, Knowledge entries per mission
+- **More ▾** opens: **Resources** · **Outposts** · **Discoveries** · **Fleet Manager** · **Insights** · **Universes** · **Route Planner** · **Knowledge Atlas** · **Timeline**
+- When a More-menu view is active, the button shows that view’s name (e.g. **Resources ▾**)
 - **Current Universe** dropdown sits directly under the tabs (same top-left zone)
-- **Search systems…** sits in the top-centre (Star Systems view only)
+- **Search the atlas…** sits in the top-centre on **every view** (galactic search across all catalogues)
 - Zoom and save controls sit in the top-right — they no longer overlap the tabs or search bar
 - **Current Universe** dropdown — switch between Universe 1–4; each keeps its own mission, planet, location, survey, outpost, and discovery progress
 - **122 missions** across Main Quest, faction lines, companions, side quests, activities, Shattered Space, and Terran Armada
@@ -36,7 +88,6 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 - **Prerequisite warning** when a mission is marked Active but earlier chain steps are incomplete
 - **Progress summary:** Total / Completed / Active / Remaining / Skipped, plus completion % for Main Quest, Faction, Shattered Space, and Terran Armada
 - **Status icons:** ● available · ✓ completed / all done · ⚠ active
-- **Filters:** search title, group, expansion, status; “completed only” and “active only” toggles
 - Track mission **status**: Not started, Active, Completed, Skipped
 - Add a free-text **note** per mission (saved when you leave the field)
 - **Show on Map** jumps back to the map, highlights the system, and opens its details panel (when assigned)
@@ -68,13 +119,37 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 - Saved routes list supports **Load**, **Highlight**, and **Delete**
 
 ### Knowledge Atlas view
-- Read-only **`knowledgeData`** catalogue — vendors, companions, temples, powers, magazines, player homes, unique gear, ship vendors, trainers
-- Search by **title**, **type**, or **tag** (e.g. Andreja, Powers, Magazines, Vendors)
-- Category filters: Vendors · Powers · Temples · Companions · Homes · Unique Items
-- **Show on Map** on every entry with a linked system
+- Read-only **`knowledgeData`** catalogue (**45 Pack 2 entries**) — vendors, ships, stations, medical, trainers, magazines, uniques, companions, homes, and landmarks
+- **Click any entry** (or **View Details**) for the detail panel — description, location, faction, tags, related missions, and related entries
+- Search by title, tag, category, **system**, **planet**, or **location** (partial match)
+- Category filters: Vendors · Ships & Services · Stations · Medical · Trainers · Crew · Landmarks · Companions · Homes · Unique Items · Powers · Temples
+- **Show on Map** when a star system is linked; framework-only entries show “Show on Map unavailable”
+- Detail panel: **Show on Map**, **Open System**, **Open Mission**, **Compare**
+- **Clear filters** when search or category filters are active
 - System details panel shows **Knowledge Entries: X** and a bullet list for that system
 - Expanded location drilldown shows linked knowledge entries
-- Starter seed only (companions, homes, The Lodge, powers framework) — not saved, no save migration
+- Catalogue-only — not saved, no save migration
+
+### Compare & Planning Mode
+- **Compare** on the system details panel adds the current system to a temporary side-by-side list (up to **4** systems)
+- Open the **Compare** tray (bottom-left) to view the comparison panel
+- Side-by-side stats: difficulty, faction, explored/scanned, missions, planets, locations, knowledge, resources, planned outposts, survey %
+- **Mission comparison** — Main Quest, Faction, Side, Activities with completed counts and %
+- **Resource comparison** — common resources plus resources unique to each system (when comparing 2+ systems)
+- **Planning score** — Exploration, Resources, Knowledge, Missions, and Overall (0–100 heuristics for “what should I do next?”)
+- Also add systems via **Compare** on Galaxy Resources, Route Planner jump path, and Knowledge Atlas cards
+- Per-system actions: **Show on Map**, **Open Details**, **Remove**; **Clear All** resets the list
+- Comparison list is **not saved** — runtime only
+
+### Galaxy Timeline view
+- Open from **More ▾ → Timeline** (not a permanent top tab)
+- Chronological history built from your saved progress — missions, exploration, discoveries, outposts, and more
+- Grouped by **Today · Yesterday · This Week · Earlier** (collapsible)
+- Filter by Missions · Discoveries · Exploration · Outposts · Knowledge · Survey · Universes
+- Search title, description, system, or planet
+- **Milestones** track first survey, 10 systems explored, 25 missions, 100 discoveries, 50 locations, first outpost
+- Each event: **Show on Map**, **Open Details**, and **Open Mission** when linked
+- Timeline is generated at runtime — not a separate saved log
 
 ### Galaxy Resources view
 - Live search across **Iron**, **Aluminum**, **Copper**, **Helium-3**, **Titanium**, **Nickel**, **Water**
@@ -115,18 +190,25 @@ An offline, single-file interactive galaxy map for *Starfield*. Track which star
 ## Controls
 
 ### Top-left — View switcher
-| Tab | Action |
-|-----|--------|
+| Control | Action |
+|---------|--------|
 | **Star Systems** | Interactive map (default) |
 | **Missions** | Mission checklist, faction progress, quest chains, recommendations |
 | **Galaxy Progress** | Read-only progress summary |
+| **Command Center** | Actionable dashboard — what to do next |
+| **More ▾** | Opens secondary views (see below) — top-left, separate from save **More ▾** (top-right) |
+
+**More ▾ menu**
+
+| Tab | Action |
+|-----|--------|
 | **Resources** | Galaxy-wide resource finder |
 | **Outposts** | Planned outpost summary and resource hubs |
 | **Discoveries** | Personal discovery journal |
 | **Universes** | NG+ profiles, compare runs, master atlas, milestones |
-| **Command Center** | Actionable dashboard — what to do next |
 | **Route Planner** | Travel routes, multi-stop planning, saved routes |
-| **Knowledge Atlas** | Read-only knowledge base — companions, vendors, homes, powers |
+| **Knowledge Atlas** | Read-only encyclopedia — vendors, ships, stations, medical, trainers, crew, uniques |
+| **Timeline** | Chronological adventure history from saved progress |
 
 ### Universes view (NG+ tracker)
 - **Universe Completion** — Main Quest %, Faction %, Survey %, Discovery % for the active universe
@@ -160,7 +242,7 @@ Shown after **Highlight on Map** or **Show on Map** from the Resources tab.
 | **Clear all layers** | Turn off all layer toggles |
 
 ### Top-right — Map & save bar
-Primary controls are always visible; save/export actions live in **More ▾**.
+Primary controls are always visible on every view; save/export actions live in the **save More ▾** (top-right — not the view More menu on the left).
 
 | Control | Action |
 |---------|--------|
@@ -226,6 +308,12 @@ Collapsible **Map layers** panel near the search bar. Toggles are **not saved** 
 ### Keyboard shortcuts
 | Key | Action |
 |-----|--------|
+| **Ctrl+K** | Open Galactic Search |
+| **Esc** | Close search, modals, details, compare, or help |
+| **↑ / ↓** | Navigate search suggestions and results |
+| **Enter** | Open highlighted search result |
+| **F** | Focus current / selected system on the map |
+| **?** | Shortcut help overlay |
 | **+** / **=** | Zoom in |
 | **−** | Zoom out |
 | **0** | Reset view (zoom and pan) |
@@ -265,9 +353,11 @@ Requires a modern browser with JavaScript enabled. Works from `file://` when ope
 ## Tips
 
 - Use **Reset view** (top-right) if zoom or pan feels lost — it returns to the default view.
-- Use **Search systems…** to find Sol, Alpha Centauri, etc. quickly on the map.
+- Use **Search the atlas…** to find systems, missions, knowledge, locations, and resources from any view.
 - Use **Show active missions** in Map layers while playing to see where your active quests are.
 - Use **Show on Map** from a mission to jump to its system and open details.
 - Mission badges on the map update when you change status on the Missions tab.
 - Hard-refresh (**Ctrl+F5**) after updating the HTML file if the map looks stale.
-- When expanding planet/location catalogues, open DevTools console on load — **Starfield Catalogue Stats** reports orphans and duplicate ids (auto on localhost/`file://`, or add `?catalogueDev=1` to the URL).
+- When expanding catalogues, open DevTools on load (`file://`, localhost, or `?catalogueDev=1`). Use **Atlas Manager**: `AtlasManager.validateAtlas()`, `.getAtlasStatistics()` (includes `missionAtlasCoverage`, `coverageByCategory`), `.getAtlasCompletenessReport()`, `.getExpansionReadiness()` (includes mission metadata gaps), `.getAtlasHealthReport()` (RC diagnostics), `.rebuildAtlasIndexes()`, `.buildSearchIndex()`, `.searchGalactic('query')`, `.measureAtlasPerformance()` (includes search index/search timing).
+- Developer docs: `docs/Developer-Guide.md`, `docs/Version-1.0-Architecture-Overview.md`, `docs/Backup-Restore-Guide.md`.
+- Verify a build: `node scripts/run-full-regression.js`
